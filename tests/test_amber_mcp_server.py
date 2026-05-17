@@ -126,6 +126,33 @@ class TestValidationTools:
         assert result["tool"] == "check_convergence"
 
 
+class TestAnalysisTools:
+    def test_read_mdout_missing_file_returns_error(self):
+        result = server.read_mdout(mdout_file="/nonexistent/prod.mdout")
+        assert result["status"] == "error"
+        assert result["tool"] == "read_mdout"
+
+    def test_read_file_tail_missing_file_returns_error(self):
+        result = server.read_file_tail(file_path="/nonexistent/file.txt")
+        assert result["status"] == "error"
+        assert result["tool"] == "read_file_tail"
+
+    def test_list_files_existing_dir_returns_ok(self, tmp_path):
+        result = server.list_files(directory=str(tmp_path))
+        assert result["status"] == "ok"
+        assert "files" in result
+
+    def test_list_files_missing_dir_returns_error(self):
+        result = server.list_files(directory="/nonexistent/dir")
+        assert result["status"] == "error"
+        assert result["tool"] == "list_files"
+
+    def test_check_environment_returns_dict(self):
+        result = server.check_environment()
+        assert isinstance(result, dict)
+        assert "status" in result
+
+
 class TestRAGTools:
     def test_rag_query_empty_question_returns_error(self):
         result = server.rag_query(question="")

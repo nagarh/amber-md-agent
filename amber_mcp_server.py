@@ -408,5 +408,114 @@ def rag_toc(
         return {"status": "error", "error": str(e), "tool": "rag_toc"}
 
 
+# ─── Analysis Tools ───────────────────────────────────────────────────────────
+
+@mcp.tool()
+def read_mdout(
+    mdout_file: Annotated[str, Field(description="Path to Amber .mdout file")],
+    last_n: Annotated[Optional[int], Field(description="Return only last N frames of energy data")] = None,
+) -> dict:
+    """Parse energy, temperature, density from Amber .mdout file. Returns time-series data."""
+    try:
+        result = md_agent.read_mdout(mdout_file, last_n=last_n)
+        return {"status": "ok", "energy_data": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "read_mdout"}
+
+
+@mcp.tool()
+def read_file_tail(
+    file_path: Annotated[str, Field(description="Path to file to read")],
+    n_chars: Annotated[int, Field(description="Number of characters from file end to return")] = 3000,
+) -> dict:
+    """Read last N characters of a file. Use to check log files and mdout progress."""
+    try:
+        result = md_agent.read_file_tail(file_path, n_chars=n_chars)
+        if "error" in result:
+            return {"status": "error", "error": result["error"], "tool": "read_file_tail"}
+        return {"status": "ok", "content": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "read_file_tail"}
+
+
+@mcp.tool()
+def read_file_head(
+    file_path: Annotated[str, Field(description="Path to file to read")],
+    n_chars: Annotated[int, Field(description="Number of characters from file start to return")] = 3000,
+) -> dict:
+    """Read first N characters of a file. Use to inspect headers or tLEaP outputs."""
+    try:
+        result = md_agent.read_file_head(file_path, n_chars=n_chars)
+        if "error" in result:
+            return {"status": "error", "error": result["error"], "tool": "read_file_head"}
+        return {"status": "ok", "content": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "read_file_head"}
+
+
+@mcp.tool()
+def list_files(
+    directory: Annotated[str, Field(description="Directory path to list")],
+    pattern: Annotated[str, Field(description="Glob pattern e.g. '*.pdb' or '*.mdout'")] = "*",
+) -> dict:
+    """List files in directory matching pattern. Returns sorted file list."""
+    try:
+        if not Path(directory).exists():
+            raise FileNotFoundError(f"Directory not found: {directory}")
+        result = md_agent.list_files(directory, pattern=pattern)
+        return {"status": "ok", "files": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "list_files"}
+
+
+@mcp.tool()
+def plot_timeseries(
+    data_file: Annotated[str, Field(description="Path to whitespace-delimited .dat file (col1=time, col2=value)")],
+    output_png: Annotated[str, Field(description="Path to write output .png plot")],
+    xlabel: Annotated[str, Field(description="X-axis label")] = "Time",
+    ylabel: Annotated[str, Field(description="Y-axis label")] = "Value",
+    title: Annotated[Optional[str], Field(description="Plot title")] = None,
+    column_x: Annotated[int, Field(description="Column index for X data (0-based)")] = 0,
+    column_y: Annotated[int, Field(description="Column index for Y data (0-based)")] = 1,
+    time_scale: Annotated[float, Field(description="Scale factor for time axis")] = 1.0,
+) -> dict:
+    """Plot time-series data (RMSD, energy, density) as PNG."""
+    try:
+        md_agent.plot_timeseries(data_file, output_png, xlabel=xlabel, ylabel=ylabel, title=title, column_x=column_x, column_y=column_y, time_scale=time_scale)
+        return {"status": "ok", "plot": output_png}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "plot_timeseries"}
+
+
+@mcp.tool()
+def plot_bar(
+    data_file: Annotated[str, Field(description="Path to whitespace-delimited .dat file (col1=residue, col2=value)")],
+    output_png: Annotated[str, Field(description="Path to write output .png plot")],
+    xlabel: Annotated[str, Field(description="X-axis label")] = "Residue",
+    ylabel: Annotated[str, Field(description="Y-axis label")] = "Value",
+    title: Annotated[Optional[str], Field(description="Plot title")] = None,
+    column_x: Annotated[int, Field(description="Column index for X data (0-based)")] = 0,
+    column_y: Annotated[int, Field(description="Column index for Y data (0-based)")] = 1,
+) -> dict:
+    """Plot per-residue bar chart (RMSF, B-factors) as PNG."""
+    try:
+        md_agent.plot_bar(data_file, output_png, xlabel=xlabel, ylabel=ylabel, title=title, column_x=column_x, column_y=column_y)
+        return {"status": "ok", "plot": output_png}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "plot_bar"}
+
+
+# ─── Environment ──────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def check_environment() -> dict:
+    """Check Amber environment — pmemd.cuda, tleap, cpptraj availability and versions."""
+    try:
+        result = md_agent.check_environment()
+        return {"status": "ok", "environment": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "check_environment"}
+
+
 if __name__ == "__main__":
     mcp.run()

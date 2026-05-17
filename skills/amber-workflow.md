@@ -3,25 +3,27 @@
 Rigid 6-step protocol for ANY simulation or analysis request. Follow every step in order. No skipping.
 
 ## Step 1 — Check Environment
-```bash
-python md_agent.py check-env
+```
+check_environment()
 ```
 Know what tools are available before planning.
 
-**check-env reports Amber tools as missing on login node — expected.** Tools only available inside SLURM jobs after module load.
+**check_environment() reports Amber tools as missing on login node — expected.** Tools only available inside SLURM jobs after module load.
 Before submitting ANY SLURM job, confirm the module-load chain works by submitting a test job:
-```bash
-python md_agent.py write-slurm /tmp/test_modules.sh \
-  --commands "module load gnu12/12.2.0 && module load amber/24 && source /opt/shared/apps/amber/24/amber.sh && which tleap antechamber pmemd.cuda cpptraj" \
-  --job-name test_modules --work-dir /tmp --gpus 0 --walltime 00:05:00
-python md_agent.py sbatch /tmp/test_modules.sh
+```
+write_slurm(
+  output_path="/tmp/test_modules.sh",
+  commands="module load gnu12/12.2.0 && module load amber/24 && source /opt/shared/apps/amber/24/amber.sh && which tleap antechamber pmemd.cuda cpptraj",
+  job_name="test_modules", work_dir="/tmp", gpus=0, walltime="00:05:00"
+)
+submit_slurm(script_path="/tmp/test_modules.sh")
 ```
 If any tool is missing in the SLURM output → fix module lines in `scripts/slurm_template.sh` before any submission.
 
 ## Step 2 — RAG Query + Literature Search (MANDATORY)
 
 ### 2a. Amber manual (RAG)
-Run multiple queries using `rag-query`, `rag-toc`, `rag-section`, `rag-pages` (syntax in CLAUDE.md). Cover: protocol setup, parameter flags, analysis procedure.
+Run multiple queries using `rag_query()`, `rag_toc()`, `rag_section()`, `rag_pages()` (tool signatures in CLAUDE.md). Cover: protocol setup, parameter flags, analysis procedure.
 If RAG index unavailable → stop, tell user to ingest manual first.
 
 ### 2b. Literature search (Europe PMC via `mcp_servers/pubmed_server.py`)
@@ -84,8 +86,8 @@ Still 0 hits → write `[no methodology precedent found]` in PLAN.md, proceed wi
 Output: deduplicated list of 5–15 keywords.
 
 **Step 2c.3: RAG manual cross-reference.** For each extracted keyword:
-```bash
-python md_agent.py rag-query "<keyword> <technique>"
+```
+rag_query(question="<keyword> <technique>")
 ```
 Read top 3 manual hits. Look for explicit Amber flag names: `gti_*`, `scalpha`, `scbeta`, `ifsc`, `icfe`, `noshakemask`, `barostat`, etc.
 
@@ -96,8 +98,8 @@ Read top 3 manual hits. Look for explicit Amber flag names: `gti_*`, `scalpha`, 
 **Step 2c.4: Write findings into PLAN.md.** See Step 4a (`## Method best practices` section template).
 
 ## Step 3 — Pre-flight (MANDATORY before any system build)
-```bash
-python md_agent.py preflight <raw.pdb>
+```
+preflight(pdb_file="<raw.pdb>")
 ```
 Fix ALL flagged issues before writing tLEaP scripts. Do not proceed on FAIL.
 
@@ -177,7 +179,7 @@ If user did NOT say → pick default above, mark source `DEFAULT` so user notice
 | Medium 50–100k OR burst 2–5 iter | 500 ps |
 | Large >100k OR burst >5 iter (long cold) | 1 ns |
 | Membrane | 2 ns |
-Auto-extend if validate-step shows |temp − target| > 5 K after — no extra approval needed.
+Auto-extend if validate_step() shows |temp − target| > 5 K after — no extra approval needed.
 
 ## Box
 - Solvent: <model>, padding <N> Å
@@ -279,17 +281,17 @@ After EVERY tool run:
 
 ### Validation Gates
 
-**After tLEaP:** run `validate-tleap` (flags in CLAUDE.md).
+**After tLEaP:** run `validate_tleap(log_file=...)`.
 FAIL → do not proceed. Fix tLEaP script and re-run.
 → append to PROCESS_REPORT.md: `| tLEaP | PASS/FAIL | - | Errors=N, prmtop size |`
 
-**After every MD step:** run `validate-step` (flags in CLAUDE.md).
+**After every MD step:** run `validate_step(mdout_file=..., expected_nstep=..., ...)`.
 FAIL → do not proceed to next step. Diagnose first.
 → append to PROCESS_REPORT.md: `| <step> | PASS/FAIL | <JOBID> | final E, density, NSTEP |`
 
 **After restrained equilibration — density check:**
 - Density 0.90–1.10 AND fluctuation < 0.02 g/cc → proceed to production
-- Density < 0.90 OR > 1.10 OR fluctuating > 0.02 → run `write-equil-density` (flags in CLAUDE.md), then submit via SLURM
+- Density < 0.90 OR > 1.10 OR fluctuating > 0.02 → run `write_equil_density_script(output_path, prmtop, rst_in, rst_out, mdin_path, work_dir, ...)`, then submit via SLURM
 ⚠ NEVER use sander for density convergence (50x slower than pmemd.cuda)
 ⚠ barostat=1 (Berendsen) + taup=0.5 for equil2
 ⚠ ntwr=500 so rst7 saved even on crash
@@ -317,11 +319,11 @@ After every sbatch:
 ## Step 6 — Diagnose and Adapt
 On failure:
 1. Read mdout/log with `Read` tool
-2. `rag-query "<error or symptom>"` — covers Amber MD errors AND cpptraj (pages 671–865)
+2. `rag_query(question="<error or symptom>")` — covers Amber MD errors AND cpptraj (pages 671–865)
 3. `Read("skills/amber-bugs.md")` for known cluster issues
 4. Fix and retry
 
-**cpptraj errors specifically:** `rag-query "cpptraj <failing command> syntax"` — full command reference in Amber24.pdf. Do this before guessing syntax.
+**cpptraj errors specifically:** `rag_query(question="cpptraj <failing command> syntax")` — full command reference in Amber24.pdf. Do this before guessing syntax.
 
 ## Step 6b — Production Restart / Extend
 
@@ -335,7 +337,7 @@ nstlim=<additional_steps>
 pmemd.cuda -O -i extend.mdin -o extend.mdout -p system.prmtop \
   -c prod.rst7 -r extend.rst7 -x extend.nc
 ```
-Validate: `validate-step extend.mdout --expected-nstep <N> --target-temp 300`
+Validate: `validate_step(mdout_file="extend.mdout", expected_nstep=<N>, target_temp=300)`
 Concatenate trajectories for analysis: cpptraj `trajin prod.nc; trajin extend.nc`
 
 ## Step 7 — Finalize & Write Reports
@@ -369,16 +371,19 @@ atomicfluct @CA out analysis/rmsf.dat byres
 # 5. Energetics
 run
 ```
-```bash
+```
 # cpptraj via SLURM (never on login node)
-python md_agent.py write-slurm studies/<study>/analysis/run_cpptraj.sh \
-  --commands "cd /abs/path/studies/<study>/analysis && cpptraj -i analysis.in > cpptraj.log 2>&1" \
-  --job-name cpptraj_<study> --work-dir /abs/path/studies/<study>/analysis \
-  --gpus 0 --walltime 01:00:00
-python md_agent.py sbatch studies/<study>/analysis/run_cpptraj.sh
-# these run on login node (Python only, no Amber binary):
-python md_agent.py energy simulations/prod/prod.mdout
-python md_agent.py convergence analysis/rmsd.dat
+write_slurm(
+  output_path="studies/<study>/analysis/run_cpptraj.sh",
+  commands="cd /abs/path/studies/<study>/analysis && cpptraj -i analysis.in > cpptraj.log 2>&1",
+  job_name="cpptraj_<study>", work_dir="/abs/path/studies/<study>/analysis",
+  gpus=0, walltime="01:00:00"
+)
+submit_slurm(script_path="studies/<study>/analysis/run_cpptraj.sh")
+# parse energy/density/temp from mdout (runs on login node — Python only):
+read_mdout(mdout_file="simulations/prod/prod.mdout")
+# check RMSD plateau convergence:
+check_convergence(data_file="analysis/rmsd.dat")
 ```
 
 **Convergence check:** RMSD should plateau (no drift > 0.5 Å over last 50% of trajectory). If still drifting → simulation not converged → extend or report caveat in STUDY_REPORT.
@@ -415,7 +420,7 @@ Goal: a user can audit the entire run without re-reading mdouts or mdin files.
 (Parse "ns/day" from mdout footer. Wall from SLURM job runtime — `squeue` while running, or end-of-mdout timestamps.)
 
 ## Energy / Temperature / Density Averages
-Parse `python md_agent.py energy <prod.mdout>` output, paste here:
+Parse `read_mdout(mdout_file="<prod.mdout>")` output, paste here:
 | Property    | Mean    | Std    | Range            |
 |-------------|---------|--------|------------------|
 | Etot        | <X>     | <X>    | <min, max>       |
@@ -435,7 +440,7 @@ Parse `python md_agent.py energy <prod.mdout>` output, paste here:
 |---------------------|-----------|-----------|-------------|
 | Backbone RMSD       | 0.25 Å    | 0.5 Å     | converged   |
 | <other observables> |           |           |             |
-(One row per `python md_agent.py convergence` call run during Step 7.)
+(One row per `check_convergence()` call run during Step 7.)
 
 ## Re-runs / Auto-fixes
 List every restart, density burst, or auto-extend executed without re-asking user:

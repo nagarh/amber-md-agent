@@ -4,7 +4,7 @@ Full protein system preparation pipeline. Covers preflight → cleaning → capp
 
 ## Step 1 — Fetch & Validate Structure
 
-**If user provided PDB ID:** `python md_agent.py fetch <PDB_ID>` → skip to Step 2.
+**If user provided PDB ID:** `fetch_pdb(pdb_id="<PDB_ID>")` → skip to Step 2.
 
 **If protein name only:** Run full selection loop (see `amber-mcp.md` Structure Selection Loop):
 1. `pdb.search_pdb(target, organism)` → ranked by resolution, filter < 3.0 Å
@@ -27,15 +27,15 @@ Full protein system preparation pipeline. Covers preflight → cleaning → capp
 
 ## Step 2 — Inspect & Clean
 
-```bash
-python md_agent.py inspect <raw.pdb>
-python md_agent.py clean <raw.pdb> --output clean.pdb   # runs pdb4amber
+```
+inspect_pdb(pdb_file="<raw.pdb>")
+clean_pdb(pdb_file="<raw.pdb>", output_file="clean.pdb")   # runs pdb4amber
 ```
 
 ## Step 3 — Preflight (MANDATORY)
 
-```bash
-python md_agent.py preflight <clean.pdb>
+```
+preflight(pdb_file="<clean.pdb>")
 ```
 
 Fix ALL flagged issues before writing tLEaP scripts:
@@ -127,8 +127,8 @@ python scripts/cap_protein.py protein_only.pdb protein_capped.pdb
 
 ## Step 5 — Write tLEaP Script
 
-```bash
-python md_agent.py write-tleap tleap.in --commands "cmd1; cmd2; ..."
+```
+write_tleap(output_path="tleap.in", commands="cmd1; cmd2; ...")
 ```
 
 **Always use absolute paths** in all tLEaP commands — relative paths fail when SLURM sets `-D` to a subdirectory:
@@ -168,7 +168,7 @@ Only add physiological salt (150 mM NaCl) when user explicitly requests it or st
 | 12 Å | Standard — most protein-ligand binding studies |
 | 15 Å | Highly charged protein (net charge > ±10), large conformational changes, IDPs |
 
-Rule: box side must be > protein diameter + 2× padding AND > 2× PME cutoff (20 Å for cutoff=10). Check box dimensions after tLEaP: `python md_agent.py inspect system.prmtop`.
+Rule: box side must be > protein diameter + 2× padding AND > 2× PME cutoff (20 Å for cutoff=10). Check box dimensions after tLEaP: `inspect_pdb(pdb_file="system.prmtop")`.
 
 ### Multimer / oligomer systems
 Load full multimer PDB (preferred — preserves inter-chain contacts):
@@ -189,23 +189,24 @@ bond sys.82.SG sys.331.SG   # chain A Cys82 — chain B Cys331
 
 ## Step 6 — Run tLEaP (via SLURM — never on login node)
 
-```bash
-python md_agent.py write-slurm studies/<study>/system/run_tleap.sh \
-  --commands "cd /abs/path/studies/<study>/system && tleap -f tleap.in > tleap.log 2>&1" \
-  --job-name tleap_<study> \
-  --work-dir /abs/path/studies/<study>/system \
-  --gpus 0 \
-  --walltime 00:30:00
-
-python md_agent.py sbatch studies/<study>/system/run_tleap.sh
+```
+write_slurm(
+  output_path="studies/<study>/system/run_tleap.sh",
+  commands="cd /abs/path/studies/<study>/system && tleap -f tleap.in > tleap.log 2>&1",
+  job_name="tleap_<study>",
+  work_dir="/abs/path/studies/<study>/system",
+  gpus=0,
+  walltime="00:30:00"
+)
+submit_slurm(script_path="studies/<study>/system/run_tleap.sh")
 ```
 
 Poll until done, then read `tleap.log` for validation.
 
 ## Step 7 — Validate tLEaP Output (MANDATORY)
 
-```bash
-python md_agent.py validate-tleap studies/<study>/system/tleap.log
+```
+validate_tleap(log_file="studies/<study>/system/tleap.log")
 ```
 
 | Status | Indicator |
@@ -229,4 +230,4 @@ If FAIL → diagnose, fix tLEaP script, re-run. Do NOT proceed to simulation.
 ```bash
 ls -lh system.prmtop system.inpcrd   # both must exist, non-zero size
 ```
-Then `python md_agent.py inspect system.prmtop`.
+Then `inspect_pdb(pdb_file="system.prmtop")`.

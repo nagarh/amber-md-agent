@@ -2,7 +2,7 @@
 
 Per-tool log validation checklist. Read after ANY tool run before proceeding.
 
-Use `validate-tleap` and `validate-step` (full flags in CLAUDE.md).
+Use `validate_tleap(log_file=...)` and `validate_step(mdout_file=..., ...)` (full tool signatures in CLAUDE.md).
 
 ## Per-Tool Checklist
 
@@ -49,7 +49,7 @@ Always follow with parmchk2. Check output for `ATTN: need revision`.
 
 **Density criteria:**
 - Mean density in 0.90–1.10 AND fluctuation < 0.02 g/cc → production OK
-- Mean density < 0.90 OR > 1.10 → re-equilibrate with `write-equil-density`
+- Mean density < 0.90 OR > 1.10 → re-equilibrate with `write_equil_density_script()`
 - Density fluctuating > 0.02 g/cc (large swings visible in mdout) → not converged, extend equil
 - Do NOT use a single-frame density reading — check last 10% of equil frames for stability
 
@@ -61,7 +61,7 @@ Always follow with parmchk2. Check output for `ATTN: need revision`.
 | ✗ Stop | `Could not open` |
 | ✗ Stop | `no atoms selected` |
 
-On any cpptraj error → `rag-query "cpptraj <failing command> syntax"` before guessing. Full reference in Amber24.pdf pages 671–865.
+On any cpptraj error → `rag_query(question="cpptraj <failing command> syntax")` before guessing. Full reference in Amber24.pdf pages 671–865.
 
 ### MMPBSA.py (`*.dat`)
 | Status | Indicator |
@@ -102,8 +102,8 @@ After confirming success:
 
 ## Trajectory Convergence (after production)
 
-```bash
-python md_agent.py convergence analysis/rmsd.dat
+```
+check_convergence(data_file="analysis/rmsd.dat")
 ```
 
 | Result | Meaning | Action |
@@ -117,7 +117,7 @@ python md_agent.py convergence analysis/rmsd.dat
 
 ## Density Convergence (if equil density outside 0.90–1.10)
 
-Run `write-equil-density` (full flags in CLAUDE.md). Required settings:
+Run `write_equil_density_script()` (full tool signature in CLAUDE.md). Required settings:
 - `barostat=1` (Berendsen) — NOT barostat=2 (MC)
 - `taup=0.5`
 - `ntwr=500` (save rst7 even on crash)

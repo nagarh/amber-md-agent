@@ -218,6 +218,36 @@ def write_equil_density_script(
         return {"status": "error", "error": str(e), "tool": "write_equil_density_script"}
 
 
+# ─── Direct Exec Tools (login-node, tiny jobs only) ──────────────────────────
+
+@mcp.tool()
+def run_tleap(
+    input_file: Annotated[str, Field(description="Path to tLEaP input (.in) file")],
+    cwd: Annotated[Optional[str], Field(description="Working directory")] = None,
+) -> dict:
+    """Run tLEaP directly on login node (tiny jobs <30s only). Returns stdout, stderr, leap_log.
+    Requires Amber in PATH. Falls back to write_tleap + write_slurm + submit_slurm for heavy jobs."""
+    try:
+        result = md_agent.run_tleap(input_file, cwd=cwd)
+        return {"status": "ok" if result["success"] else "error", **result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "run_tleap"}
+
+
+@mcp.tool()
+def run_cpptraj(
+    input_file: Annotated[str, Field(description="Path to cpptraj input (.in) file")],
+    cwd: Annotated[Optional[str], Field(description="Working directory")] = None,
+) -> dict:
+    """Run cpptraj directly on login node (tiny jobs <30s only). Returns stdout, stderr.
+    Requires Amber in PATH. Falls back to write_cpptraj + write_slurm + submit_slurm for heavy jobs."""
+    try:
+        result = md_agent.run_cpptraj(input_file, cwd=cwd)
+        return {"status": "ok" if result["success"] else "error", **result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "run_cpptraj"}
+
+
 # ─── SLURM Tools ─────────────────────────────────────────────────────────────
 
 @mcp.tool()

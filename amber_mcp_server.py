@@ -197,7 +197,7 @@ def write_equil_density_script(
     prmtop: Annotated[str, Field(description="Path to system .prmtop file")],
     rst_in: Annotated[str, Field(description="Input .rst7 restart file")],
     rst_out: Annotated[str, Field(description="Output .rst7 restart file after convergence")],
-    mdin_path: Annotated[str, Field(description="Path to equilibration .mdin file")],
+    mdin_path: Annotated[str, Field(description="Path to equilibration .mdin file or its parent directory")],
     work_dir: Annotated[str, Field(description="Working directory on cluster")],
     job_name: Annotated[str, Field(description="SLURM job name")] = "equil_density",
     prod_mdin: Annotated[Optional[str], Field(description="Production .mdin — submitted automatically after convergence")] = None,

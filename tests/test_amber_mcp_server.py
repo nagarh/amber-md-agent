@@ -34,3 +34,52 @@ class TestPDBTools:
         result = server.preflight(pdb_file="/nonexistent/file.pdb")
         assert result["status"] == "error"
         assert result["tool"] == "preflight"
+
+
+class TestFileWriters:
+    def test_write_tleap_creates_file(self, tmp_path):
+        out = str(tmp_path / "test.in")
+        result = server.write_tleap(
+            output_path=out,
+            commands="source leaprc.protein.ff19SB\nquit",
+        )
+        assert result["status"] == "ok"
+        assert Path(out).exists()
+
+    def test_write_mdin_creates_file(self, tmp_path):
+        out = str(tmp_path / "min.mdin")
+        result = server.write_mdin(
+            output_path=out,
+            namelist_params='{"imin": 1, "maxcyc": 1000, "cut": 8.0}',
+            title="Test minimization",
+        )
+        assert result["status"] == "ok"
+        assert Path(out).exists()
+
+    def test_write_cpptraj_creates_file(self, tmp_path):
+        out = str(tmp_path / "rmsd.in")
+        result = server.write_cpptraj(
+            output_path=out,
+            commands="parm sys.prmtop\ntrajin prod.nc\nrmsd :1-100 out rmsd.dat\nrun",
+        )
+        assert result["status"] == "ok"
+        assert Path(out).exists()
+
+    def test_write_file_creates_file(self, tmp_path):
+        out = str(tmp_path / "custom.sh")
+        result = server.write_file(
+            output_path=out,
+            content="#!/bin/bash\necho hello",
+        )
+        assert result["status"] == "ok"
+        assert Path(out).exists()
+
+    def test_write_slurm_creates_file(self, tmp_path):
+        out = str(tmp_path / "job.sh")
+        result = server.write_slurm(
+            output_path=out,
+            commands="echo test",
+            job_name="test_job",
+        )
+        assert result["status"] == "ok"
+        assert Path(out).exists()

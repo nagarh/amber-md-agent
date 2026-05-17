@@ -184,3 +184,38 @@ class TestRAGTools:
         result = server.rag_ingest(manual_path="/nonexistent/manual.pdf")
         assert result["status"] == "error"
         assert result["tool"] == "rag_ingest"
+
+
+class TestValidateStepTemp:
+    def test_averages_section_excluded_from_temp_check(self, tmp_path):
+        """AVERAGES (300.01 K) and RMS FLUCT (3.25 K) must not pollute temp avg."""
+        mdout = tmp_path / "prod.mdout"
+        mdout.write_text(
+            " NSTEP =    1000   TIME(PS) =   2.000  TEMP(K) = 299.90  PRESS =  -7.1\n"
+            " NSTEP =    2000   TIME(PS) =   4.000  TEMP(K) = 300.10  PRESS =   1.2\n"
+            " NSTEP =    3000   TIME(PS) =   6.000  TEMP(K) = 299.80  PRESS =  -2.1\n"
+            " NSTEP =    4000   TIME(PS) =   8.000  TEMP(K) = 300.20  PRESS =   0.5\n"
+            " NSTEP =    5000   TIME(PS) =  10.000  TEMP(K) = 300.00  PRESS =   0.0\n"
+            "\n"
+            "      A V E R A G E S   O V E R       5 S T E P S\n"
+            "\n"
+            " NSTEP =    5000   TIME(PS) =  10.000  TEMP(K) = 300.01  PRESS =   0.0\n"
+            "\n"
+            "      R M S  F L U C T U A T I O N S\n"
+            "\n"
+            " NSTEP =       0   TIME(PS) =   0.000  TEMP(K) =   3.25  PRESS =   0.0\n"
+        )
+        result = server.validate_step(
+            mdout_file=str(mdout),
+            target_temp=300.0,
+            temp_tolerance=10.0,
+        )
+        assert result["status"] == "ok"
+        temp_check = next(
+            c for c in result["validation"]["checks"] if c["check"] == "temperature"
+        )
+        assert temp_check["status"] == "PASS", (
+            f"Expected PASS but got {temp_check['status']}: {temp_check['detail']}"
+        )
+        final_temp = result["validation"]["diagnostics"]["final_temp"]
+        assert final_temp > 295.0, f"final_temp {final_temp} pulled down by RMS FLUCT 3.25 K value"

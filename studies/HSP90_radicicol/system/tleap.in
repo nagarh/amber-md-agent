@@ -1,0 +1,24 @@
+source leaprc.protein.ff14SB
+source leaprc.water.tip3p
+source leaprc.gaff2
+
+# Load ligand parameters
+RDC = loadMol2 /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HSP90_radicicol/system/ligand.mol2
+loadAmberParams /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HSP90_radicicol/system/ligand.frcmod
+
+# Load protein (capped)
+prot = loadPdb /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HSP90_radicicol/system/protein_capped.pdb
+
+# Build complex
+complex = combine { prot RDC }
+
+# Solvate and neutralize
+solvatebox complex TIP3PBOX 12.0
+addIonsRand complex Na+ 0
+addIonsRand complex Na+ 47 Cl- 47
+
+# Save topology and coordinates
+saveAmberParm complex /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HSP90_radicicol/system/system.prmtop /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HSP90_radicicol/system/system.inpcrd
+savePdb complex /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HSP90_radicicol/system/system.pdb
+
+quit

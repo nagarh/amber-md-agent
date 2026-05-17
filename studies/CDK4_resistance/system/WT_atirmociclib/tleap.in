@@ -1,0 +1,29 @@
+source leaprc.protein.ff14SB
+source leaprc.water.tip3p
+source leaprc.gaff2
+
+# Load ligand parameters
+A1A = loadMol2 ligand/A1A.mol2
+loadAmberParams ligand/A1A.frcmod
+
+# Load protein chains
+CDK4 = loadPdb cdk4_capped.pdb
+CYCD1 = loadPdb cycd1_capped.pdb
+
+# Combine complex
+COMPLEX = combine {CDK4 CYCD1 A1A}
+
+# Solvate with TIP3P, 10 Å buffer
+solvatebox COMPLEX TIP3PBOX 10.0
+
+# Check charge and neutralize
+charge COMPLEX
+addIons COMPLEX Na+ 0
+addIons COMPLEX Cl- 0
+
+# Check system
+check COMPLEX
+
+# Save
+saveAmberParm COMPLEX system.prmtop system.inpcrd
+quit

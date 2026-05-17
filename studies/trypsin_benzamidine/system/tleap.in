@@ -1,0 +1,23 @@
+source leaprc.protein.ff14SB
+source leaprc.water.tip3p
+source leaprc.gaff2
+loadAmberParams frcmod.ionsjc_tip3p
+loadAmberParams frcmod.ions234lm_126_tip3p
+
+loadAmberParams /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/ligand.frcmod
+BEN = loadMol2 /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/ligand.mol2
+
+prot = loadPdb /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/protein_clean_amber.pdb
+calc = loadPdb /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/calcium.pdb
+
+sys = combine {prot calc BEN}
+charge sys
+
+solvateBox sys TIP3PBOX 18.0
+addIons sys Na+ 0
+addIons sys Cl- 0
+
+saveAmberParm sys /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/system.prmtop /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/system.inpcrd
+savePdb sys /home/hn533621/Portfolio/amber-md-agent-improvements/studies/trypsin_benzamidine/system/system_solvated.pdb
+charge sys
+quit

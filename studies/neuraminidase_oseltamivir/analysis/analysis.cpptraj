@@ -1,0 +1,25 @@
+
+parm /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/system/system.prmtop
+trajin /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/simulations/prod/prod.nc
+
+# Strip water and ions for faster processing
+strip :WAT,Na+
+
+# Auto-image to fix PBC
+autoimage
+
+# --- Backbone RMSD (fit + compute) ---
+rms backbone_rmsd :2-389@CA,C,N out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/analysis/rmsd_backbone.dat mass first
+
+# --- Ligand RMSD (fit backbone first, then measure ligand) ---
+rms backbone_fit :2-389@CA,C,N nofit
+rms ligand_rmsd :391 out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/analysis/rmsd_ligand.dat nofit
+
+# --- RMSF per CA ---
+rmsf rmsf_ca :2-389@CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/analysis/rmsf_ca.dat byres
+
+# --- H-bonds oseltamivir <-> protein ---
+hbond hbonds :391 donormask :2-389 acceptormask :2-389 out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/analysis/hbonds.dat avgout /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/analysis/hbonds_avg.dat
+
+run
+quit

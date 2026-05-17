@@ -1,0 +1,22 @@
+parm /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/system/system.prmtop
+trajin /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/simulations/prod/prod.nc
+
+autoimage
+strip :WAT,Na+,Cl-
+trajout /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/analysis/prod_stripped.nc
+
+rms first @CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/analysis/rmsd_backbone.dat
+
+atomicfluct @CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/analysis/rmsf_per_residue.dat byres
+
+# Flap region RMSF (chain A residues 43-58, chain B residues 142-157 in tleap numbering)
+atomicfluct :43-58,142-157@CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/analysis/rmsf_flaps.dat byres
+
+# Flap tip distance: Ile50 CA - Ile149 CA (Ile50' in chain B)
+distance flap_tip :50@CA :149@CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/analysis/flap_tip_distance.dat
+
+# Active site distance: Asp25 chain A - Asp25 chain B (catalytic dyad)
+distance catalytic :25@OD1,OD2 :124@OD1,OD2 out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/HIV1PR_apo/analysis/active_site.dat
+
+run
+quit

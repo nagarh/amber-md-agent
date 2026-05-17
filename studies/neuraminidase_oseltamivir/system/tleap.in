@@ -1,0 +1,40 @@
+source leaprc.protein.ff14SB
+source leaprc.water.tip3p
+source leaprc.gaff2
+loadAmberParams /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/system/ligand.frcmod
+
+# Load protein (ACE/NME-capped)
+mol = loadPdb /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/raw_pdbs/6HEB_capped.pdb
+
+# Disulfide bonds (9 pairs, new numbering = original - 81)
+bond mol.12.SG mol.338.SG
+bond mol.44.SG mol.49.SG
+bond mol.96.SG mol.114.SG
+bond mol.104.SG mol.151.SG
+bond mol.153.SG mol.158.SG
+bond mol.199.SG mol.212.SG
+bond mol.201.SG mol.210.SG
+bond mol.239.SG mol.257.SG
+bond mol.342.SG mol.368.SG
+
+# Load ligand
+LIG = loadMol2 /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/system/ligand.mol2
+
+# Load structural Ca2+ ion
+CAL = loadPdb /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/raw_pdbs/ca_ions.pdb
+
+# Combine system
+sys = combine { mol LIG CAL }
+
+# Solvate with TIP3P box, 12 Angstrom padding
+solvatebox sys TIP3PBOX 12.0
+
+# Add neutralizing ions + physiological NaCl (0.15 M)
+addIonsRand sys Na+ 0
+addIonsRand sys Cl- 0
+
+# Save topology and coordinates
+saveamberparm sys /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/system/system.prmtop /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/system/system.inpcrd
+savepdb sys /home/hn533621/Portfolio/amber-md-agent-improvements/studies/neuraminidase_oseltamivir/system/system_solvated.pdb
+
+quit

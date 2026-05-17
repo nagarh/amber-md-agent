@@ -1,0 +1,15 @@
+source leaprc.protein.ff14SB
+source leaprc.gaff2
+source leaprc.water.tip3p
+loadAmberParams frcmod.ionsjc_tip3p
+STI = loadMol2 /home/hn533621/Portfolio/amber-md-agent-improvements/studies/ABL1_T315I_imatinib_TI/system/imatinib.mol2
+loadAmberParams /home/hn533621/Portfolio/amber-md-agent-improvements/studies/ABL1_T315I_imatinib_TI/system/imatinib.frcmod
+WT = loadPDB /home/hn533621/Portfolio/amber-md-agent-improvements/studies/ABL1_T315I_imatinib_TI/system/protein_capped.pdb
+TI = loadPDB /home/hn533621/Portfolio/amber-md-agent-improvements/studies/ABL1_T315I_imatinib_TI/system/protein_T315I.pdb
+COMBINED = combine {WT TI STI}
+charge COMBINED
+solvateoct COMBINED TIP3PBOX 10.0
+addIonsRand COMBINED Na+ 0
+check COMBINED
+saveamberparm COMBINED /home/hn533621/Portfolio/amber-md-agent-improvements/studies/ABL1_T315I_imatinib_TI/system/combined_raw.prmtop /home/hn533621/Portfolio/amber-md-agent-improvements/studies/ABL1_T315I_imatinib_TI/system/combined_raw.inpcrd
+quit

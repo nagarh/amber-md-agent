@@ -1,0 +1,25 @@
+
+parm /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/system/system.prmtop
+trajin /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/simulations/prod/prod.nc
+
+autoimage
+strip :WAT,Na+,Cl-
+trajout /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/analysis/prod_stripped.nc
+
+rms first @CA,C,N
+average crdset AvgStruct
+run
+
+rms ref AvgStruct @CA,C,N
+rmsd backbone @CA,C,N out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/analysis/rmsd_backbone.dat
+
+atomicfluct @CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/analysis/rmsf_per_residue.dat byres
+
+distance :33@NZ :51@OE1 out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/analysis/lys33_glu51_dist.dat
+
+distance :145@CA :33@CA out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/analysis/dfg_to_nlobe_dist.dat
+
+dihedral :145@N :145@CA :145@C :146@N out /home/hn533621/Portfolio/amber-md-agent-improvements/studies/CDK2_apo/analysis/asp145_phi.dat
+
+run
+quit

@@ -42,7 +42,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent  # project root (md_agent.py is in scripts/)
 REFERENCES_DIR = BASE_DIR / "references"
 
 # RAG index cache — loaded once per index path, reused across all queries in same session

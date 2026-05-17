@@ -54,81 +54,28 @@ Read the relevant skill file and follow it exactly when triggered.
 
 ## Toolkit Reference
 
+All operations via MCP tools (registered in `.mcp.json`). Claude Code calls tools directly — no `python md_agent.py` needed.
+
 ### Environment
-```bash
-python md_agent.py check-env
-```
+Tool: `check_environment()`
 
 ### PDB
-```bash
-python md_agent.py fetch <PDB_ID> [--dir studies/<study>/raw_pdbs/]
-python md_agent.py inspect <file.pdb>
-python md_agent.py clean <file.pdb> --output out.pdb
-python md_agent.py preflight <file.pdb>   # MANDATORY before system build
-propka3 -o 7.0 <protein_only.pdb>        # MANDATORY for HIS/ASP/GLU protonation — runs on login node (Python tool)
-```
+Tools: `fetch_pdb(pdb_id, output_dir)`, `inspect_pdb(pdb_file)`, `clean_pdb(pdb_file, output_file, keep_waters, keep_hydrogens)`, `preflight(pdb_file, check_ligands)`
 
 ### File Writers
-```bash
-python md_agent.py write-mdin <out> --params '{"imin":1,...}' --extra "section1"
-python md_agent.py write-tleap <out> --commands "cmd1; cmd2"
-python md_agent.py write-cpptraj <out> --commands "cmd1; cmd2"
-python md_agent.py write-groupfile <out> --entries '[{...}]'
-```
-
-### Runners
-⚠ ALL Amber runners go via SLURM — never call directly on login node.
-Use `write-slurm` + `sbatch` wrappers instead:
-```bash
-# pmemd: write-slurm → sbatch (standard pattern)
-# tleap: write-slurm --gpus 0 --walltime 00:30:00 → sbatch
-# cpptraj: write-slurm --gpus 0 --walltime 01:00:00 → sbatch
-# These md_agent runner commands are available but only for use INSIDE SLURM job scripts:
-python md_agent.py run-amber <engine> -i in.mdin -o out.mdout -p top.prmtop -c in.rst7 -r out.rst7 [-x traj.nc] [--ref ref.rst7]
-python md_agent.py run-tleap <input.in>
-python md_agent.py run-cpptraj <script.in>
-```
-
-### Output & Diagnosis
-```bash
-python md_agent.py energy <prod.mdout>              # parse energy/temp/density from mdout
-python md_agent.py convergence <data.dat>           # check RMSD/data convergence
-```
-
-### File Writers (extended)
-```bash
-python md_agent.py write-groupfile <out> --entries '[{...}]'   # REMD/TI groupfile
-```
-
-### Validation Gates
-```bash
-python md_agent.py validate-tleap <leap.log>
-python md_agent.py validate-step <step.mdout> \
-    --expected-nstep <N> --min-density 0.90 --check-rst7 <step.rst7> --target-temp <T>
-python md_agent.py write-equil-density <script.sh> \
-    --prmtop sys.prmtop --rst-in equil.rst7 --rst-out equil2.rst7 \
-    --mdin-dir mdin/ --work-dir /path/ --job-name equil_density \
-    --prod-mdin prod.mdin --prod-mdout prod.mdout --prod-rst prod.rst7 --prod-nc prod.nc \
-    --temperature <T>
-```
-
-### RAG
-```bash
-python md_agent.py rag-ingest <manual.pdf> [--append]
-python md_agent.py rag-query "search terms"
-python md_agent.py rag-toc
-python md_agent.py rag-section "Free Energy"
-python md_agent.py rag-pages 140 150
-```
+Tools: `write_mdin(output_path, namelist_params, title, extra_sections)`, `write_tleap(output_path, commands)`, `write_cpptraj(output_path, commands)`, `write_groupfile(output_path, entries)`, `write_file(output_path, content)`, `write_slurm(output_path, commands, job_name, work_dir, gpus, walltime)`, `write_slurm_array(output_path, command_template, array_range, job_name, work_dir, gpus, walltime)`, `write_equil_density_script(output_path, prmtop, rst_in, rst_out, mdin_path, work_dir, ...)`
 
 ### SLURM
-```bash
-python md_agent.py write-slurm <script.sh> --commands "..." --job-name <name> --work-dir <path> --partition defq --gpus 1 --walltime 24:00:00
-python md_agent.py write-slurm-array <script.sh> --command-template "..." --array-range "0-23" --job-name <name> --work-dir <path> --gpus 1
-python md_agent.py sbatch <script.sh>
-python md_agent.py squeue [--job-id <id>]
-python md_agent.py sacct
-```
+Tools: `submit_slurm(script_path, cwd)`, `check_slurm_job(job_id)`, `cancel_slurm_job(job_id)`, `slurm_history(days)`
+
+### Validation Gates
+Tools: `validate_step(mdout_file, expected_nstep, min_density, max_density, check_rst7, target_temp, temp_tolerance)`, `validate_tleap(log_file)`, `check_convergence(data_file, column, abs_threshold)`
+
+### RAG
+Tools: `rag_ingest(manual_path, append)`, `rag_query(question, top_k, index_path)`, `rag_toc(index_path)`, `rag_section(section_name, index_path)`, `rag_page(page_num, index_path)`, `rag_pages(start, end, index_path)`
+
+### Analysis
+Tools: `read_mdout(mdout_file, last_n)`, `read_file_tail(file_path, n_chars)`, `read_file_head(file_path, n_chars)`, `list_files(directory, pattern)`, `plot_timeseries(data_file, output_png, xlabel, ylabel)`, `plot_bar(data_file, output_png, xlabel, ylabel)`
 
 ---
 

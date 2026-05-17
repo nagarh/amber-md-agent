@@ -190,6 +190,7 @@ class TestValidateStepTemp:
     def test_averages_section_excluded_from_temp_check(self, tmp_path):
         """AVERAGES (300.01 K) and RMS FLUCT (3.25 K) must not pollute temp avg."""
         mdout = tmp_path / "prod.mdout"
+        # 5 time-series lines: last 20% slice (int(7*0.8)=5) puts AVERAGES+RMS FLUCT in the late window
         mdout.write_text(
             " NSTEP =    1000   TIME(PS) =   2.000  TEMP(K) = 299.90  PRESS =  -7.1\n"
             " NSTEP =    2000   TIME(PS) =   4.000  TEMP(K) = 300.10  PRESS =   1.2\n"
@@ -219,3 +220,4 @@ class TestValidateStepTemp:
         )
         final_temp = result["validation"]["diagnostics"]["final_temp"]
         assert final_temp > 295.0, f"final_temp {final_temp} pulled down by RMS FLUCT 3.25 K value"
+        assert final_temp < 305.0, f"final_temp {final_temp} looks like AVERAGES block leaked in"

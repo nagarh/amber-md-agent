@@ -77,6 +77,9 @@ Tools: `rag_ingest(manual_path, append)`, `rag_query(question, top_k, index_path
 ### Analysis
 Tools: `read_mdout(mdout_file, last_n)`, `read_file_tail(file_path, n_chars)`, `read_file_head(file_path, n_chars)`, `list_files(directory, pattern)`, `plot_timeseries(data_file, output_png, xlabel, ylabel)`, `plot_bar(data_file, output_png, xlabel, ylabel)`
 
+### Direct Exec (login-node, tiny jobs only)
+Tools: `run_tleap(input_file, cwd)`, `run_cpptraj(input_file, cwd)`
+
 ---
 
 ## SLURM / Cluster
@@ -87,7 +90,8 @@ Tools: `read_mdout(mdout_file, last_n)`, `read_file_tail(file_path, n_chars)`, `
 
 **What runs where**:
 - Login node: NOTHING Amber-related. Python scripts, file writes, parmed Python API only.
-- SLURM only: tLEaP, pdb4amber, cpptraj, antechamber, pmemd.cuda, sander — ALL of them.
+  - **Exception:** `run_tleap` and `run_cpptraj` MCP tools may run on the login node for tiny (<30s) jobs (system prep, short analysis). If Amber is not in PATH they fail immediately — fall back to `write_tleap`/`write_slurm`/`submit_slurm`.
+- SLURM only: pdb4amber, antechamber, pmemd.cuda, sander — all pmemd/sander runs without exception.
 
 **tLEaP/cpptraj submission pattern** — wrap in SLURM script with `--gpus 0 --walltime 00:30:00`:
 ```bash

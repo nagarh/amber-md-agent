@@ -1,6 +1,7 @@
 """Smoke tests for amber_mcp_server — call functions directly, not via MCP protocol."""
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import amber_mcp_server as server
@@ -224,9 +225,8 @@ class TestValidateStepTemp:
 
 
 class TestDirectExecTools:
-    def test_run_tleap_missing_tool_called_with_args(self, tmp_path):
+    def test_run_tleap_called_with_correct_args(self, tmp_path):
         """run_tleap calls md_agent.run_tleap with correct args."""
-        from unittest.mock import patch
         leap_in = tmp_path / "system.in"
         leap_in.write_text("quit\n")
         with patch("md_agent.run_tleap", return_value={"success": True, "stdout": "Done", "stderr": ""}) as mock:
@@ -235,19 +235,15 @@ class TestDirectExecTools:
         assert result["status"] == "ok"
         assert result["success"] is True
 
-    def test_run_tleap_failure_returns_error_status(self, tmp_path):
+    def test_run_tleap_failure_returns_error_status(self):
         """run_tleap propagates failure from md_agent.run_tleap."""
-        from unittest.mock import patch
-        leap_in = tmp_path / "system.in"
-        leap_in.write_text("quit\n")
         with patch("md_agent.run_tleap", return_value={"success": False, "stdout": "", "stderr": "tleap: command not found"}):
-            result = server.run_tleap(input_file=str(leap_in))
+            result = server.run_tleap(input_file="/any/file.in")
         assert result["status"] == "error"
         assert "tleap: command not found" in result["stderr"]
 
     def test_run_tleap_exception_returns_error(self, tmp_path):
         """run_tleap catches exceptions and returns error dict with tool key."""
-        from unittest.mock import patch
         with patch("md_agent.run_tleap", side_effect=RuntimeError("no tleap")):
             result = server.run_tleap(input_file="/any/file.in")
         assert result["status"] == "error"
@@ -256,7 +252,6 @@ class TestDirectExecTools:
 
     def test_run_cpptraj_called_with_args(self, tmp_path):
         """run_cpptraj calls md_agent.run_cpptraj with correct args."""
-        from unittest.mock import patch
         cpptraj_in = tmp_path / "analysis.in"
         cpptraj_in.write_text("parm sys.prmtop\nquit\n")
         with patch("md_agent.run_cpptraj", return_value={"success": True, "stdout": "Done", "stderr": ""}) as mock:
@@ -266,14 +261,13 @@ class TestDirectExecTools:
 
     def test_run_cpptraj_failure_returns_error_status(self, tmp_path):
         """run_cpptraj propagates failure from md_agent.run_cpptraj."""
-        from unittest.mock import patch
         with patch("md_agent.run_cpptraj", return_value={"success": False, "stdout": "", "stderr": "cpptraj: command not found"}):
             result = server.run_cpptraj(input_file="/any/analysis.in")
         assert result["status"] == "error"
+        assert "cpptraj: command not found" in result["stderr"]
 
     def test_run_cpptraj_exception_returns_error(self):
         """run_cpptraj catches exceptions and returns error dict with tool key."""
-        from unittest.mock import patch
         with patch("md_agent.run_cpptraj", side_effect=RuntimeError("no cpptraj")):
             result = server.run_cpptraj(input_file="/any/analysis.in")
         assert result["status"] == "error"

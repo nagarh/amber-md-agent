@@ -83,3 +83,25 @@ class TestFileWriters:
         )
         assert result["status"] == "ok"
         assert Path(out).exists()
+
+
+class TestSLURMTools:
+    def test_submit_slurm_missing_script_returns_error(self):
+        result = server.submit_slurm(script_path="/nonexistent/job.sh")
+        assert result["status"] == "error"
+        assert result["tool"] == "submit_slurm"
+
+    def test_check_slurm_job_no_id_returns_dict(self):
+        result = server.check_slurm_job()
+        assert isinstance(result, dict)
+        assert "status" in result
+
+    def test_cancel_slurm_job_bad_id_returns_error(self):
+        result = server.cancel_slurm_job(job_id="99999999")
+        assert isinstance(result, dict)
+        assert "status" in result
+
+    def test_slurm_history_returns_dict(self):
+        result = server.slurm_history(days=1)
+        assert isinstance(result, dict)
+        assert "status" in result

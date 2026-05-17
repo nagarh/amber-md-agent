@@ -218,5 +218,59 @@ def write_equil_density_script(
         return {"status": "error", "error": str(e), "tool": "write_equil_density_script"}
 
 
+# ─── SLURM Tools ─────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def submit_slurm(
+    script_path: Annotated[str, Field(description="Path to SLURM .sh script to submit")],
+    cwd: Annotated[Optional[str], Field(description="Working directory for sbatch (default: script directory)")] = None,
+) -> dict:
+    """Submit SLURM job via sbatch. Returns job_id on success."""
+    try:
+        result = md_agent.submit_slurm(script_path, cwd=cwd)
+        if isinstance(result, dict) and not result.get("success"):
+            return {"status": "error", "error": result.get("stderr", "Unknown error"), "tool": "submit_slurm"}
+        job_id = result if isinstance(result, str) else result.get("job_id", str(result))
+        return {"status": "ok", "job_id": str(job_id), "script": script_path}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "submit_slurm"}
+
+
+@mcp.tool()
+def check_slurm_job(
+    job_id: Annotated[Optional[str], Field(description="Specific job ID to check. Omit to list all user jobs.")] = None,
+) -> dict:
+    """Check SLURM job status. Returns state, elapsed time, and nodes."""
+    try:
+        result = md_agent.check_slurm_job(job_id=job_id)
+        return {"status": "ok", "jobs": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "check_slurm_job"}
+
+
+@mcp.tool()
+def cancel_slurm_job(
+    job_id: Annotated[str, Field(description="SLURM job ID to cancel")],
+) -> dict:
+    """Cancel a running or pending SLURM job via scancel."""
+    try:
+        result = md_agent.cancel_slurm_job(job_id)
+        return {"status": "ok", "cancelled_job": job_id, "output": str(result)}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "cancel_slurm_job"}
+
+
+@mcp.tool()
+def slurm_history(
+    days: Annotated[int, Field(description="Number of past days to show job history")] = 7,
+) -> dict:
+    """Show SLURM job history via sacct. Returns completed/failed jobs."""
+    try:
+        result = md_agent.slurm_job_history(days=days)
+        return {"status": "ok", "history": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "slurm_history"}
+
+
 if __name__ == "__main__":
     mcp.run()

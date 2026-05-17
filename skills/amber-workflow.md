@@ -296,6 +296,7 @@ FAIL → do not proceed to next step. Diagnose first.
 ⚠ barostat=1 (Berendsen) + taup=0.5 for equil2
 ⚠ ntwr=500 so rst7 saved even on crash
 ⚠ barostat=1 for ALL equil runs — barostat=2 (MC) crashes when density far from target. Only switch to barostat=2 for production.
+⚠ restraintmask for backbone: use `@CA,C,N` — NOT `@CA,C,N,O`. TIP3P water oxygens are named `O`; including O in the mask restrains ~7000 water atoms and inflates restraint energy by orders of magnitude. Drop the O; carbonyl oxygens are rarely needed for structural restraint.
 
 ### Task Tracking
 Use TaskCreate at start — one task per major step. Update status immediately:

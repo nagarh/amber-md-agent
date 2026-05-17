@@ -205,6 +205,15 @@ restraintmask='@CA,C,N,O&!:WAT',  # WRONG — & confuses Fortran parser
 ```
 Use `!:RESNAME` (not operator) instead of `&!:RESNAME` (and-not operator) when excluding solvent.
 
+### `@CA,C,N,O` backbone mask restrains TIP3P water oxygens
+**Symptom**: Initial RESTRAINT energy ~50,000–80,000 kcal/mol instead of expected ~10–100 kcal/mol. Simulation completes but restraint forces are meaningless — effectively restraining ~7,000 water oxygen atoms.
+**Cause**: TIP3P water oxygen atom name is `O`. The mask `@CA,C,N,O` selects ALL atoms named O in the system, including every water oxygen.
+```
+restraintmask="@CA,C,N,O",   # WRONG — catches ~7000 TIP3P water oxygens
+restraintmask="@CA,C,N",      # correct — protein backbone only, no water
+```
+**Rule**: Always use `@CA,C,N` for backbone restraints. Carbonyl oxygens (`O`) add minimal structural stability; omitting them is standard practice and avoids this bug.
+
 ---
 
 ## Density / Box Blown Up

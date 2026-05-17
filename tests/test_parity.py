@@ -32,6 +32,40 @@ FIXTURES_EXIST = (
 )
 
 
+# ─── Restraintmask Validation ────────────────────────────────────────────────
+
+class TestRestraintmaskValidation:
+    """write_mdin must reject masks that select TIP3P water oxygens."""
+
+    def test_rejects_CA_C_N_O_mask(self, tmp_path):
+        import pytest
+        params = {"imin": 0, "ntr": 1, "restraintmask": "@CA,C,N,O", "restraint_wt": 5.0}
+        with pytest.raises(ValueError, match="TIP3P water"):
+            md_agent.write_mdin(str(tmp_path / "bad.mdin"), params)
+
+    def test_rejects_bare_O_mask(self, tmp_path):
+        import pytest
+        params = {"imin": 0, "ntr": 1, "restraintmask": "@O", "restraint_wt": 5.0}
+        with pytest.raises(ValueError, match="TIP3P water"):
+            md_agent.write_mdin(str(tmp_path / "bad.mdin"), params)
+
+    def test_accepts_CA_C_N_mask(self, tmp_path):
+        params = {"imin": 0, "ntr": 1, "restraintmask": "@CA,C,N", "restraint_wt": 5.0}
+        md_agent.write_mdin(str(tmp_path / "good.mdin"), params)
+        assert (tmp_path / "good.mdin").exists()
+
+    def test_accepts_residue_restricted_mask(self, tmp_path):
+        params = {"imin": 0, "ntr": 1, "restraintmask": "!(:WAT,Na+,Cl-)&@CA,C,N", "restraint_wt": 0.5}
+        md_agent.write_mdin(str(tmp_path / "good2.mdin"), params)
+        assert (tmp_path / "good2.mdin").exists()
+
+    def test_mcp_rejects_CA_C_N_O_mask(self, tmp_path):
+        params = '{"imin": 0, "ntr": 1, "restraintmask": "@CA,C,N,O", "restraint_wt": 5.0}'
+        result = server.write_mdin(output_path=str(tmp_path / "bad_mcp.mdin"), namelist_params=params)
+        assert result["status"] == "error"
+        assert "TIP3P water" in result["error"]
+
+
 # ─── Write Tools ─────────────────────────────────────────────────────────────
 
 class TestWriteToolParity:

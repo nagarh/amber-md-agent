@@ -272,5 +272,58 @@ def slurm_history(
         return {"status": "error", "error": str(e), "tool": "slurm_history"}
 
 
+# ─── Validation Tools ─────────────────────────────────────────────────────────
+
+@mcp.tool()
+def validate_step(
+    mdout_file: Annotated[str, Field(description="Path to .mdout file from completed pmemd/sander run")],
+    expected_nstep: Annotated[Optional[int], Field(description="Expected final NSTEP value e.g. 500000")] = None,
+    min_density: Annotated[Optional[float], Field(description="Minimum acceptable density g/cc e.g. 0.95")] = None,
+    max_density: Annotated[Optional[float], Field(description="Maximum acceptable density g/cc e.g. 1.10")] = None,
+    check_rst7: Annotated[Optional[str], Field(description="Path to .rst7 that must exist after run")] = None,
+    target_temp: Annotated[float, Field(description="Target temperature in Kelvin")] = 300.0,
+    temp_tolerance: Annotated[float, Field(description="Acceptable temperature deviation from target")] = 10.0,
+) -> dict:
+    """GATE between pipeline steps. Validates mdout completed correctly — PASS or FAIL with diagnostics."""
+    try:
+        result = md_agent.validate_step(
+            mdout_file, expected_nstep=expected_nstep,
+            min_density=min_density, max_density=max_density,
+            check_rst7=check_rst7, target_temp=target_temp,
+            temp_tolerance=temp_tolerance,
+        )
+        return {"status": "ok", "validation": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "validate_step"}
+
+
+@mcp.tool()
+def validate_tleap(
+    log_file: Annotated[str, Field(description="Path to tleap.out log file")],
+) -> dict:
+    """Parse tLEaP log for FATAL errors, warnings, and atom count. Returns PASS/FAIL."""
+    try:
+        result = md_agent.validate_tleap(log_file)
+        return {"status": "ok", "validation": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "validate_tleap"}
+
+
+@mcp.tool()
+def check_convergence(
+    data_file: Annotated[str, Field(description="Path to time-series .dat file (e.g. RMSD, energy)")],
+    column: Annotated[int, Field(description="Data column index (1-based)")] = 1,
+    abs_threshold: Annotated[float, Field(description="Convergence threshold — std dev below this = converged")] = 0.5,
+) -> dict:
+    """Check if time-series data has converged. Returns converged=True/False with statistics."""
+    try:
+        result = md_agent.check_convergence(data_file, column=column, abs_threshold=abs_threshold)
+        if result.get("status") == "error":
+            return {"status": "error", "error": result.get("error", "Unknown error"), "tool": "check_convergence"}
+        return {"status": "ok", "convergence": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "check_convergence"}
+
+
 if __name__ == "__main__":
     mcp.run()

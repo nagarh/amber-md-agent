@@ -105,3 +105,22 @@ class TestSLURMTools:
         result = server.slurm_history(days=1)
         assert isinstance(result, dict)
         assert "status" in result
+
+
+class TestValidationTools:
+    def test_validate_step_missing_mdout_returns_fail(self):
+        result = server.validate_step(mdout_file="/nonexistent/prod.mdout")
+        assert result["status"] == "ok"
+        assert result["validation"]["status"] == "FAIL"
+        assert result["validation"]["checks"][0]["check"] == "file_exists"
+
+    def test_validate_tleap_missing_log_returns_fail(self):
+        result = server.validate_tleap(log_file="/nonexistent/tleap.log")
+        assert result["status"] == "ok"
+        assert result["validation"]["status"] == "FAIL"
+        assert result["validation"]["checks"][0]["check"] == "file_exists"
+
+    def test_check_convergence_missing_file_returns_error(self):
+        result = server.check_convergence(data_file="/nonexistent/rmsd.dat")
+        assert result["status"] == "error"
+        assert result["tool"] == "check_convergence"

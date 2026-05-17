@@ -51,7 +51,7 @@ def inspect_pdb(
 @mcp.tool()
 def clean_pdb(
     pdb_file: Annotated[str, Field(description="Path to input .pdb file")],
-    output_file: Annotated[Optional[str], Field(description="Output path. Defaults to <input>_clean.pdb")] = None,
+    output_file: Annotated[Optional[str], Field(description="Output path. Defaults to clean.pdb in the same directory as input.")] = None,
     keep_waters: Annotated[bool, Field(description="Retain crystallographic waters")] = False,
     keep_hydrogens: Annotated[bool, Field(description="Retain existing hydrogens")] = False,
 ) -> dict:

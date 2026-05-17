@@ -285,3 +285,7 @@ python md_agent.py validate-step prod.mdout --expected-nstep 50000 --check-rst7 
 ---
 
 *RAG-grounded so every decision traces to the manual, not training data. HITL-gated so science stays in the loop. Experimentally validated so results mean something.*
+
+---
+
+**Author:** Hemant Nagar — [hn533621@ohio.edu](mailto:hn533621@ohio.edu)

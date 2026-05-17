@@ -33,9 +33,11 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import shutil
+import time
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -43,9 +45,19 @@ from datetime import datetime
 BASE_DIR = Path(__file__).parent
 REFERENCES_DIR = BASE_DIR / "references"
 
+# RAG index cache — loaded once per index path, reused across all queries in same session
+_rag_index_cache: dict = {}
+
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger("amber_md")
+
+STANDARD_AA = {
+    "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY",
+    "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER",
+    "THR", "TRP", "TYR", "VAL", "HID", "HIE", "HIP", "CYX",
+    "ACE", "NME",
+}
 
 
 # ─── Cluster Configuration ────────────────────────────────────────────────────
@@ -180,9 +192,19 @@ def check_environment():
     if index_path.exists():
         try:
             idx = json.loads(index_path.read_text())
-            report["rag_chunks"] = idx.get("n_docs", 0)
-        except Exception:
-            pass
+            n_pages = idx.get("n_pages") or idx.get("n_docs") or len(idx.get("pages", []))
+            report["rag_pages"] = n_pages
+            report["rag_chunks"] = n_pages
+        except Exception as exc:
+            report["rag_pages"] = None
+            report["rag_chunks"] = None
+            report["rag_index_error"] = str(exc)
+
+    try:
+        r = run_cmd("sacct --help", check=False, capture=True)
+        report["sacct_available"] = (r.returncode == 0 and "accounting storage is disabled" not in r.stderr.lower())
+    except Exception:
+        report["sacct_available"] = False
 
     return report
 
@@ -194,14 +216,20 @@ def check_environment():
 def fetch_pdb(pdb_id, output_dir="."):
     """Download a PDB file from RCSB. Returns path to downloaded file."""
     pdb_id = pdb_id.upper().strip()
-    out = Path(output_dir) / f"{pdb_id}.pdb"
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"{pdb_id}.pdb"
     if out.exists():
         logger.info(f"Already exists: {out}")
         return str(out)
     url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
-    run_cmd(f"wget -q -O {out} '{url}'", cwd=output_dir)
-    if not out.exists() or out.stat().st_size < 100:
-        raise RuntimeError(f"Failed to download PDB {pdb_id}")
+    run_cmd(f"wget -q -O {shlex.quote(str(out.resolve()))} {shlex.quote(url)}")
+    if not out.exists() or out.stat().st_size < 1000:
+        raise RuntimeError(f"Failed to download PDB {pdb_id} — file too small or missing")
+    # Validate ATOM records present
+    content = out.read_text(errors='ignore')
+    if 'ATOM' not in content and 'HETATM' not in content:
+        raise RuntimeError(f"Downloaded file for {pdb_id} contains no ATOM records")
     logger.info(f"Downloaded {out} ({out.stat().st_size} bytes)")
     return str(out)
 
@@ -220,11 +248,7 @@ def inspect_pdb(pdb_file):
     nucleic = {"DA", "DT", "DG", "DC", "A", "U", "G", "C",
                "DA5", "DA3", "DT5", "DT3", "DG5", "DG3", "DC5", "DC3"}
     metals_set = {"ZN", "MG", "CA", "FE", "MN", "CO", "NI", "CU", "NA", "K"}
-    standard_aa = {
-        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY",
-        "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER",
-        "THR", "TRP", "TYR", "VAL", "HID", "HIE", "HIP", "CYX",
-    }
+    standard_aa = STANDARD_AA
     seen_residues = set()
 
     with open(pdb_file) as f:
@@ -243,7 +267,7 @@ def inspect_pdb(pdb_file):
                     seen_residues.add(reskey)
                     info["n_residues"] += 1
 
-                if line[16] not in (' ', 'A', ''):
+                if len(line) > 16 and line[16] not in (' ', 'A', ''):
                     info["alt_locations"] = True
                 if atomname.startswith("H") or atomname in ("1H", "2H", "3H"):
                     info["has_hydrogens"] = True
@@ -268,6 +292,32 @@ def inspect_pdb(pdb_file):
             elif line.startswith("REMARK 465"):
                 if len(line.strip()) > 20:
                     info["missing_residues"].append(line.strip())
+
+    # --- REMARK 350: biological assembly ---
+    biological_unit, biomt_ops = None, 0
+    biomt_op_ids = set()
+    biomt_target_chains = set()
+    with open(pdb_file) as f:
+        for line in f:
+            if not line.startswith("REMARK 350"):
+                continue
+            payload = line[10:].strip()
+            if "AUTHOR DETERMINED BIOLOGICAL UNIT" in payload:
+                _, _, unit = payload.partition(":")
+                biological_unit = unit.strip().upper() or biological_unit
+            elif "APPLY THE FOLLOWING TO CHAINS" in payload:
+                _, _, ch = payload.partition(":")
+                for c in ch.replace(" ", "").split(","):
+                    if c:
+                        biomt_target_chains.add(c)
+            elif payload.startswith("BIOMT1"):
+                parts = payload.split()
+                if len(parts) >= 2:
+                    biomt_op_ids.add(parts[1])
+    biomt_ops = len(biomt_op_ids)
+    info["biological_unit"] = biological_unit
+    info["biomt_operators"] = biomt_ops
+    info["biomt_target_chains"] = sorted(biomt_target_chains)
 
     for key in ["chains", "ligands", "metals", "residue_names", "modified_residues"]:
         info[key] = sorted(info[key])
@@ -299,9 +349,14 @@ def clean_pdb(pdb_file, output_file=None, keep_waters=False, keep_hydrogens=Fals
             for line in lines:
                 if not keep_waters and line.startswith("HETATM") and line[17:20].strip() in ("HOH", "WAT"):
                     continue
-                if line[16] not in (' ', 'A', ''):
+                if len(line) > 16 and line[16] not in (' ', 'A', ''):
                     continue
                 f.write(line)
+        # Validate fallback output has ATOM records
+        result_content = Path(output_file).read_text(errors='ignore') if Path(output_file).exists() else ""
+        atom_count = sum(1 for l in result_content.splitlines() if l.startswith(('ATOM', 'HETATM')))
+        if atom_count == 0:
+            raise RuntimeError(f"clean_pdb fallback produced no ATOM records — input PDB may be malformed")
 
     return str(output_file)
 
@@ -419,7 +474,6 @@ def write_file(output_path, content):
 def run_amber(engine, mdin, mdout, prmtop, inpcrd, rst_out, traj_out=None,
               ref=None, extra_flags="", cwd=None, timeout=None):
     """Run any Amber MD engine. Returns structured result for agent diagnosis."""
-    import time as _time
     parts = [engine, "-O",
              "-i", str(mdin), "-o", str(mdout),
              "-p", str(prmtop), "-c", str(inpcrd), "-r", str(rst_out)]
@@ -428,12 +482,13 @@ def run_amber(engine, mdin, mdout, prmtop, inpcrd, rst_out, traj_out=None,
     if ref:
         parts.extend(["-ref", str(ref)])
     if extra_flags:
+        # Caller responsible for quoting: extra_flags should be pre-validated agent input only
         parts.append(extra_flags)
 
     cmd = " ".join(parts)
-    start = _time.time()
+    start = time.time()
     result = run_cmd(cmd, cwd=cwd, check=False, timeout=timeout)
-    elapsed = _time.time() - start
+    elapsed = time.time() - start
 
     rst_path = Path(cwd or ".") / rst_out if cwd else Path(rst_out)
     success = rst_path.exists()
@@ -450,49 +505,9 @@ def run_amber(engine, mdin, mdout, prmtop, inpcrd, rst_out, traj_out=None,
     return output
 
 
-def run_amber_mpi(engine, mdin, mdout, prmtop, inpcrd, rst_out,
-                  n_procs=1, groupfile=None, traj_out=None, ref=None,
-                  extra_flags="", cwd=None, timeout=None):
-    """Run Amber with MPI (for REMD, TI, multi-sander jobs).
-
-    For groupfile-based runs (TI, REMD):
-        run_amber_mpi("pmemd.cuda.MPI", groupfile="ti.groupfile", n_procs=12, ...)
-
-    For standard MPI parallel:
-        run_amber_mpi("pmemd.MPI", mdin="prod.mdin", ..., n_procs=4)
-    """
-    import time as _time
-    if groupfile:
-        cmd = f"mpirun -np {n_procs} {engine} -O -ng {len(open(groupfile).readlines())} -groupfile {groupfile}"
-    else:
-        parts = [f"mpirun -np {n_procs}", engine, "-O",
-                 "-i", str(mdin), "-o", str(mdout),
-                 "-p", str(prmtop), "-c", str(inpcrd), "-r", str(rst_out)]
-        if traj_out:
-            parts.extend(["-x", str(traj_out)])
-        if ref:
-            parts.extend(["-ref", str(ref)])
-        if extra_flags:
-            parts.append(extra_flags)
-        cmd = " ".join(parts)
-
-    start = _time.time()
-    result = run_cmd(cmd, cwd=cwd, check=False, timeout=timeout)
-    elapsed = _time.time() - start
-
-    return {
-        "success": result.returncode == 0,
-        "elapsed_seconds": round(elapsed, 1),
-        "return_code": result.returncode,
-        "command": cmd,
-        "stdout": (result.stdout or "")[-2000:],
-        "stderr": (result.stderr or "")[-2000:],
-    }
-
-
 def run_tleap(input_file, cwd=None):
     """Run tLEaP. Returns output + leap.log for agent diagnosis."""
-    result = run_cmd(f"tleap -f {input_file}", cwd=cwd, check=False)
+    result = run_cmd(f"tleap -f {shlex.quote(str(input_file))}", cwd=cwd, check=False)
     output = {
         "success": result.returncode == 0,
         "stdout": result.stdout or "",
@@ -506,48 +521,7 @@ def run_tleap(input_file, cwd=None):
 
 def run_cpptraj(input_file, cwd=None):
     """Run cpptraj with an input file."""
-    result = run_cmd(f"cpptraj -i {input_file}", cwd=cwd, check=False)
-    return {
-        "success": result.returncode == 0,
-        "stdout": (result.stdout or "")[-3000:],
-        "stderr": (result.stderr or "")[-2000:],
-    }
-
-
-def run_antechamber(input_file, output_file, charge=0, charge_method="bcc",
-                     atom_type="gaff2", resname="LIG", cwd=None):
-    """Run antechamber for ligand parametrization."""
-    in_fmt = Path(input_file).suffix.lstrip('.').lower()
-    out_fmt = Path(output_file).suffix.lstrip('.').lower()
-    cmd = (f"antechamber -i {input_file} -fi {in_fmt} "
-           f"-o {output_file} -fo {out_fmt} "
-           f"-c {charge_method} -nc {charge} -at {atom_type} -rn {resname} -pf y")
-    result = run_cmd(cmd, cwd=cwd, check=False)
-    return {
-        "success": result.returncode == 0,
-        "stdout": (result.stdout or "")[-2000:],
-        "stderr": (result.stderr or "")[-2000:],
-    }
-
-
-def run_parmchk2(mol2_file, frcmod_file, atom_type="gaff2", cwd=None):
-    """Run parmchk2 for missing parameter checking."""
-    cmd = f"parmchk2 -i {mol2_file} -f mol2 -o {frcmod_file} -s {atom_type}"
-    result = run_cmd(cmd, cwd=cwd, check=False)
-    return {"success": result.returncode == 0}
-
-
-def run_parmed(script_or_commands, prmtop=None, cwd=None):
-    """Run ParmEd. Accepts a script file path or raw command string."""
-    if Path(script_or_commands).exists():
-        script = script_or_commands
-    else:
-        tmp = Path(cwd or ".") / "_parmed_temp.in"
-        tmp.write_text(script_or_commands)
-        script = str(tmp)
-
-    cmd = f"parmed {prmtop} -i {script}" if prmtop else f"parmed -i {script}"
-    result = run_cmd(cmd, cwd=cwd, check=False)
+    result = run_cmd(f"cpptraj -i {shlex.quote(str(input_file))}", cwd=cwd, check=False)
     return {
         "success": result.returncode == 0,
         "stdout": (result.stdout or "")[-3000:],
@@ -649,7 +623,7 @@ def write_slurm_script(output_path, commands, job_name="amber_md",
 
 def submit_slurm(script_path, cwd=None):
     """Submit a SLURM job script. Returns job ID."""
-    result = run_cmd(f"sbatch {script_path}", cwd=cwd, check=False)
+    result = run_cmd(f"sbatch {shlex.quote(str(script_path))}", cwd=cwd, check=False)
     output = {
         "success": result.returncode == 0,
         "stdout": result.stdout.strip() if result.stdout else "",
@@ -657,8 +631,7 @@ def submit_slurm(script_path, cwd=None):
     }
     # Parse job ID from "Submitted batch job 12345"
     if result.stdout:
-        import re as _re
-        m = _re.search(r'(\d+)', result.stdout)
+        m = re.search(r'(\d+)', result.stdout)
         if m:
             output["job_id"] = int(m.group(1))
     return output
@@ -679,13 +652,13 @@ def check_slurm_job(job_id=None):
 
 def cancel_slurm_job(job_id):
     """Cancel a SLURM job."""
-    result = run_cmd(f"scancel {job_id}", check=False)
+    result = run_cmd(f"scancel {int(job_id)}", check=False)
     return {"success": result.returncode == 0}
 
 
 def slurm_job_history(days=7):
     """Show recent completed jobs from sacct."""
-    cmd = (f"sacct -u $USER --starttime=$(date -d '{days} days ago' +%Y-%m-%d) "
+    cmd = (f"sacct -u $USER --starttime=$(date -d '{int(days)} days ago' +%Y-%m-%d) "
            f"--format=JobID,JobName,State,Elapsed,MaxRSS,ExitCode,NodeList "
            f"--noheader")
     result = run_cmd(cmd, check=False)
@@ -806,30 +779,6 @@ def read_mdout(mdout_file, last_n=None):
     return {"n_records": len(records), "summary": summary, "records": records}
 
 
-def read_data_file(data_file, max_lines=None):
-    """Read a cpptraj/Amber .dat file and return as structured data."""
-    lines = []
-    headers = []
-    with open(data_file) as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("#") or line.startswith("@"):
-                headers.append(line)
-                continue
-            if not line:
-                continue
-            parts = line.split()
-            try:
-                lines.append([float(x) for x in parts])
-            except ValueError:
-                headers.append(line)
-    if max_lines and len(lines) > max_lines:
-        step = len(lines) // max_lines
-        lines = lines[::step]
-    return {"headers": headers, "n_rows": len(lines),
-            "n_cols": len(lines[0]) if lines else 0, "data": lines}
-
-
 def read_file_tail(file_path, n_chars=3000):
     """Read the tail of any file for diagnosis."""
     p = Path(file_path)
@@ -882,8 +831,24 @@ def rag_ingest(manual_path, index_output=None, append=False):
         index.load(index_output)
     index.ingest(manual_path)
     index.save(index_output)
+    _rag_index_cache.pop(index_output, None)  # invalidate cache after new ingest
     return {"pages": index.n_pages, "index_path": index_output,
             "toc_entries": len(index.toc), "stats": index.stats()}
+
+
+def _get_rag_index(index_path):
+    """Load RAG index from cache or disk. Returns (index, None) or (None, error_dict)."""
+    sys.path.insert(0, str(BASE_DIR))
+    from scripts.rag_amber import PageIndex
+    index_path = index_path or str(REFERENCES_DIR / "amber_index.json")
+    if not Path(index_path).exists():
+        return None, {"error": "No Amber manual index found.",
+                      "hint": "Run: python md_agent.py rag-ingest <manual.pdf>"}
+    if index_path not in _rag_index_cache:
+        index = PageIndex()
+        index.load(index_path)
+        _rag_index_cache[index_path] = index
+    return _rag_index_cache[index_path], None
 
 
 def rag_query(question, top_k=5, index_path=None):
@@ -894,67 +859,47 @@ def rag_query(question, top_k=5, index_path=None):
     warnings, and surrounding discussion — exactly as the author wrote them.
     The LLM (Claude Code) does the semantic understanding.
     """
-    sys.path.insert(0, str(BASE_DIR))
-    from scripts.rag_amber import PageIndex
     index_path = index_path or str(REFERENCES_DIR / "amber_index.json")
-
-    if not Path(index_path).exists():
-        return {
-            "error": "No Amber manual index found.",
-            "hint": "Ask the user to provide the Amber manual, then run: "
-                    "python md_agent.py rag-ingest <manual.pdf>"
-        }
-    index = PageIndex()
-    index.load(index_path)
+    index, err = _get_rag_index(index_path)
+    if err:
+        return err
     results = index.query(question, top_k=top_k)
     return {"question": question, "n_results": len(results), "results": results}
 
 
 def rag_section(section_name, index_path=None):
     """Get all pages belonging to a named section of the manual."""
-    sys.path.insert(0, str(BASE_DIR))
-    from scripts.rag_amber import PageIndex
     index_path = index_path or str(REFERENCES_DIR / "amber_index.json")
-    if not Path(index_path).exists():
-        return {"error": "No index found."}
-    index = PageIndex()
-    index.load(index_path)
+    index, err = _get_rag_index(index_path)
+    if err:
+        return err
     return index.query_by_section(section_name)
 
 
 def rag_page(page_num, index_path=None):
     """Get a specific page from the manual by page number."""
-    sys.path.insert(0, str(BASE_DIR))
-    from scripts.rag_amber import PageIndex
     index_path = index_path or str(REFERENCES_DIR / "amber_index.json")
-    if not Path(index_path).exists():
-        return {"error": "No index found."}
-    index = PageIndex()
-    index.load(index_path)
+    index, err = _get_rag_index(index_path)
+    if err:
+        return err
     return index.get_page(page_num)
 
 
 def rag_pages(start, end, index_path=None):
     """Get a range of pages from the manual."""
-    sys.path.insert(0, str(BASE_DIR))
-    from scripts.rag_amber import PageIndex
     index_path = index_path or str(REFERENCES_DIR / "amber_index.json")
-    if not Path(index_path).exists():
-        return {"error": "No index found."}
-    index = PageIndex()
-    index.load(index_path)
+    index, err = _get_rag_index(index_path)
+    if err:
+        return err
     return index.get_page_range(start, end)
 
 
 def rag_toc(index_path=None):
     """Get the table of contents detected from the manual."""
-    sys.path.insert(0, str(BASE_DIR))
-    from scripts.rag_amber import PageIndex
     index_path = index_path or str(REFERENCES_DIR / "amber_index.json")
-    if not Path(index_path).exists():
-        return {"error": "No index found."}
-    index = PageIndex()
-    index.load(index_path)
+    index, err = _get_rag_index(index_path)
+    if err:
+        return err
     return {"toc": index.get_toc(), "stats": index.stats()}
 
 
@@ -1012,9 +957,14 @@ def plot_bar(data_file, output_png, xlabel="Residue", ylabel="Value",
 #  TOOL: Convergence Check
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def check_convergence(data_file, column=1):
+def check_convergence(data_file, column=1, abs_threshold=0.5):
     """Assess convergence of a time series.
-    Agent uses this to decide if more simulation is needed."""
+
+    Primary convergence criterion: absolute drift |mean(second half) - mean(first half)| < abs_threshold.
+    Default threshold 0.5 Å is the skill standard for RMSD plateaus. Override for
+    other observables (e.g. temperature → 5 K, density → 0.02 g/cc).
+    Agent uses this to decide if more simulation is needed.
+    """
     try:
         import numpy as np
         data = np.loadtxt(data_file, comments=['#', '@'])
@@ -1027,8 +977,8 @@ def check_convergence(data_file, column=1):
         std = float(np.std(values))
         half1 = float(np.mean(values[:n//2]))
         half2 = float(np.mean(values[n//2:]))
-        drift = abs(half2 - half1)
-        drift_pct = (drift / abs(mean) * 100) if mean != 0 else float('inf')
+        drift_abs = abs(half2 - half1)
+        drift_pct = (drift_abs / abs(mean) * 100) if mean != 0 else float('inf')
 
         block_sems = []
         for bs in [1, 5, 10, 50, 100, 500]:
@@ -1040,10 +990,12 @@ def check_convergence(data_file, column=1):
             block_sems.append({"block_size": bs, "sem": round(sem, 6)})
 
         return {
-            "status": "converged" if drift_pct < 5.0 else "not_converged",
+            "status": "converged" if drift_abs < abs_threshold else "not_converged",
+            "criterion": f"|drift_abs| < {abs_threshold} (units of input)",
             "n_points": n, "mean": round(mean, 4), "std": round(std, 4),
             "first_half_mean": round(half1, 4), "second_half_mean": round(half2, 4),
-            "drift_pct": round(drift_pct, 2), "block_averaging": block_sems,
+            "drift_abs": round(drift_abs, 4), "drift_pct_info_only": round(drift_pct, 2),
+            "block_averaging": block_sems,
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -1076,12 +1028,7 @@ def preflight(pdb_file, check_ligands=True):
         "actions_required": [],
     }
 
-    standard_aa = {
-        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY",
-        "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER",
-        "THR", "TRP", "TYR", "VAL", "HID", "HIE", "HIP", "CYX",
-        "ACE", "NME",
-    }
+    standard_aa = STANDARD_AA
     # Known modified residues that need conversion
     mod_res_fixes = {
         "TPO": "THR (remove P, O1P, O2P, O3P)",
@@ -1160,18 +1107,45 @@ def preflight(pdb_file, check_ligands=True):
         for i in range(1, len(sorted_res)):
             gap = sorted_res[i] - sorted_res[i-1]
             if gap > 1:
-                breaks_found.append(f"Chain {chain}: gap {sorted_res[i-1]}→{sorted_res[i]} ({gap-1} missing)")
+                breaks_found.append({
+                    "chain": chain,
+                    "from": sorted_res[i-1],
+                    "to": sorted_res[i],
+                    "missing": gap - 1,
+                    "chain_length": len(sorted_res),
+                })
 
     if breaks_found:
+        detail_strs = [
+            f"Chain {b['chain']}: gap {b['from']}→{b['to']} ({b['missing']} missing residues)"
+            for b in breaks_found
+        ]
         report["checks"].append({
             "check": "chain_breaks",
-            "status": "WARN",
-            "detail": f"{len(breaks_found)} chain break(s) detected",
-            "breaks": breaks_found,
+            "status": "FAIL",
+            "detail": f"{len(breaks_found)} mid-chain break(s) — unusable for MD without loop fill",
+            "breaks": detail_strs,
         })
-        report["actions_required"].append(
-            "INFO: Chain breaks will produce long C-N bond warnings in tLEaP — these are benign if the missing loops are not near the binding site"
-        )
+        report["summary"] = "FAIL — fix required before system building"
+        for b in breaks_found:
+            length = b["chain_length"]
+            if length <= 400:
+                action = (
+                    f"Chain {b['chain']} break {b['from']}→{b['to']}: "
+                    f"PREFERRED: find another PDB without this break (search with resolution_max=2.5). "
+                    f"FALLBACK: chain length {length} AA ≤ 400 — ESMFold public API can predict "
+                    f"full structure (https://esmatlas.com/resources?action=fold). "
+                    f"Submit full chain FASTA. Use predicted structure instead of this PDB."
+                )
+            else:
+                action = (
+                    f"Chain {b['chain']} break {b['from']}→{b['to']}: "
+                    f"PREFERRED: find another PDB without this break (search with resolution_max=2.5). "
+                    f"Chain length {length} AA > 400 — ESMFold public API cannot handle this length. "
+                    f"Cannot auto-fix. Ask user to provide a complete structure or identify a "
+                    f"different crystal structure without this gap."
+                )
+            report["actions_required"].append(action)
     else:
         report["checks"].append({"check": "chain_breaks", "status": "PASS", "detail": "No chain breaks"})
 
@@ -1195,10 +1169,28 @@ def preflight(pdb_file, check_ligands=True):
 
     # --- Check 4: Ligands and H atoms ---
     # Exclude caps, modified residues, waters, ions, and common non-drug HETATM
-    non_drug_hetatm = {"ACE", "NME", "NMA", "FOR", "NH2",
-                       "HOH", "WAT", "TIP", "Na+", "Cl-", "K+", "Mg2+",
-                       "TPO", "SEP", "PTR", "MLY", "MSE",  # modified AA (handled in check 3)
-                       "SO4", "PO4", "GOL", "EDO", "DMS", "ACT", "BME", "CL", "NA", "MG", "ZN", "CA", "FE"}
+    non_drug_hetatm = {
+        # caps / termini
+        "ACE", "NME", "NMA", "FOR", "NH2",
+        # waters
+        "HOH", "WAT", "TIP", "DOD",
+        # ions (PDB codes and element symbols)
+        "NA", "CL", "K", "MG", "CA", "ZN", "FE", "MN", "NI", "CU", "CO",
+        "Na+", "Cl-", "K+", "Mg2+", "ZN2", "FE2", "FE3",
+        "IOD", "BR", "F",
+        # modified AA (handled in check 3)
+        "TPO", "SEP", "PTR", "MLY", "MSE", "CSO", "CME", "OCS",
+        # common crystallographic additives / cryo-protectants
+        "GOL", "EDO", "PEG", "PE4", "PE5", "1PE", "2PE", "P6G",
+        "MPD", "IPA", "EOH", "MOH", "EGL",
+        # buffers / precipitants
+        "SO4", "PO4", "ACT", "TRS", "MES", "EPE", "HEZ", "IMD", "TLA",
+        "MLI", "CIT", "TAR", "FMT", "AZI", "SCN", "NO3",
+        # reducing agents / additives
+        "DMS", "BME", "DTT", "TCE",
+        # glycerol/detergent fragments common in crystal contacts
+        "PGE", "PGO", "BOG", "LMT", "LMU", "DIO", "XPE",
+    }
     real_ligands = [lig for lig in info.get("ligands", []) if lig not in non_drug_hetatm]
 
     if check_ligands and real_ligands:
@@ -1224,7 +1216,12 @@ def preflight(pdb_file, check_ligands=True):
                     "detail": f"Ligand {lig}: {counts['total']} atoms, 0 hydrogens — crystal PDB, cannot use directly for antechamber",
                 })
                 report["actions_required"].append(
-                    f"LIGAND {lig}: Use PubChem SDF (mcp__pubchem__get_3d_conformer) → RDKit MCS align to crystal pose → antechamber. NEVER use crystal PDB directly."
+                    f"LIGAND {lig}: Follow skills/amber-ligand.md Branch C — "
+                    f"(1) fetch CCD ideal SDF by residue name, "
+                    f"(2) cross-validate with PubChem formula/charge, "
+                    f"(3) extract crystal HETATM (one chain), "
+                    f"(4) MCS coord-transplant from crystal → AddHs, "
+                    f"(5) antechamber GAFF2. NEVER use crystal PDB directly. NEVER use get_3d_conformer + rigid align (3.48 Å RMSD error)."
                 )
                 report["summary"] = "FAIL"
             else:
@@ -1236,13 +1233,55 @@ def preflight(pdb_file, check_ligands=True):
     elif not real_ligands:
         report["checks"].append({"check": "ligands", "status": "PASS", "detail": "No drug-like ligands detected (protein-only or only buffer/ion HETATM)"})
 
-    # --- Check 5: Missing residues (REMARK 465) ---
+    # --- Check 5: Missing residues (REMARK 465) — classify terminal vs internal ---
     if info.get("missing_residues"):
-        report["checks"].append({
-            "check": "missing_residues",
-            "status": "WARN",
-            "detail": f"{info['n_missing_residues']} missing residue entries in REMARK 465 — loops not resolved in crystal",
-        })
+        missing_per_chain = {}
+        for line in info["missing_residues"]:
+            parts = line.split()
+            if len(parts) >= 5:
+                try:
+                    ch = parts[3]
+                    rn = int(parts[4])
+                    missing_per_chain.setdefault(ch, []).append(rn)
+                except (ValueError, IndexError):
+                    continue
+        terminal_count, internal_count, internal_detail = 0, 0, []
+        for ch, missing_rns in missing_per_chain.items():
+            present = sorted(chain_resnums.get(ch, set()))
+            if not present:
+                terminal_count += len(missing_rns)
+                continue
+            lo, hi = present[0], present[-1]
+            for rn in missing_rns:
+                if rn < lo or rn > hi:
+                    terminal_count += 1
+                else:
+                    internal_count += 1
+                    internal_detail.append(f"{ch}:{rn}")
+        if internal_count > 0:
+            report["checks"].append({
+                "check": "missing_residues",
+                "status": "FAIL",
+                "detail": f"{internal_count} INTERNAL missing residue(s) ({', '.join(internal_detail[:10])}) — loop modeling required; "
+                          f"{terminal_count} terminal missing — capping handles",
+            })
+            report["summary"] = "FAIL — fix required before system building"
+            report["actions_required"].append(
+                "Internal missing residues require loop modeling: python scripts/loop_model.py "
+                "(AlphaFold/ESMFold + graft). See skills/amber-protein-prep.md."
+            )
+        elif terminal_count > 0:
+            report["checks"].append({
+                "check": "missing_residues",
+                "status": "WARN",
+                "detail": f"{terminal_count} terminal missing residue(s) — ACE/NME capping handles. No loop modeling needed.",
+            })
+        else:
+            report["checks"].append({
+                "check": "missing_residues",
+                "status": "WARN",
+                "detail": f"{info['n_missing_residues']} REMARK 465 entries (chain assignment unclear) — inspect manually",
+            })
     else:
         report["checks"].append({"check": "missing_residues", "status": "PASS", "detail": "No REMARK 465 missing residues"})
 
@@ -1269,6 +1308,52 @@ def preflight(pdb_file, check_ligands=True):
     else:
         report["checks"].append({"check": "alt_locations", "status": "PASS", "detail": "No alternate locations"})
 
+    # --- Check 8: Biological assembly (REMARK 350) ---
+    bio_unit = info.get("biological_unit")
+    biomt_ops = info.get("biomt_operators", 0)
+    n_chains = len(info.get("chains", []))
+    oligomer_count = {
+        "MONOMERIC": 1, "DIMERIC": 2, "TRIMERIC": 3, "TETRAMERIC": 4,
+        "PENTAMERIC": 5, "HEXAMERIC": 6, "HEPTAMERIC": 7, "OCTAMERIC": 8,
+    }
+    expected_chains = None
+    if bio_unit:
+        for key, n in oligomer_count.items():
+            if key in bio_unit:
+                expected_chains = n * max(1, len(info.get("biomt_target_chains", []) or [None]))
+                break
+    if expected_chains is None and biomt_ops > 1:
+        expected_chains = biomt_ops * max(1, len(info.get("biomt_target_chains", []) or [None]))
+    if expected_chains and expected_chains > n_chains:
+        report["checks"].append({
+            "check": "biological_assembly",
+            "status": "FAIL",
+            "detail": (
+                f"Asymmetric unit has {n_chains} chain(s) but REMARK 350 says biological unit "
+                f"is {bio_unit or '(implied multimer from BIOMT)'} ({biomt_ops} operators, "
+                f"expected ~{expected_chains} chains). Active site may sit at chain interface — "
+                f"naive simulation of asymmetric unit will be WRONG."
+            ),
+        })
+        report["actions_required"].append(
+            "Generate biological assembly: download <PDBID>-assembly1.pdb from RCSB "
+            "(https://files.rcsb.org/download/<PDBID>-assembly1.pdb) OR apply REMARK 350 "
+            "BIOMT operators with a script (numpy: new_xyz = R @ xyz + T for each operator)."
+        )
+    elif biomt_ops > 0:
+        report["checks"].append({
+            "check": "biological_assembly",
+            "status": "PASS",
+            "detail": f"Asymmetric unit chains ({n_chains}) match biological unit "
+                      f"({bio_unit or 'see BIOMT'}, {biomt_ops} operator(s))",
+        })
+    else:
+        report["checks"].append({
+            "check": "biological_assembly",
+            "status": "INFO",
+            "detail": "No REMARK 350 biological assembly information",
+        })
+
     # --- Overall summary ---
     statuses = [c["status"] for c in report["checks"]]
     if "FAIL" in statuses:
@@ -1291,7 +1376,8 @@ def preflight(pdb_file, check_ligands=True):
 
 
 def validate_step(mdout_file, expected_nstep=None, min_density=None,
-                   max_density=None, check_rst7=None):
+                   max_density=None, check_rst7=None, target_temp=300.0,
+                   temp_tolerance=10.0):
     """Validate an MD simulation step completed successfully.
 
     This is the GATE between pipeline steps. Call after every pmemd/sander run
@@ -1315,7 +1401,12 @@ def validate_step(mdout_file, expected_nstep=None, min_density=None,
         return {"file": str(mdout_file), "status": "FAIL",
                 "checks": [{"check": "file_exists", "status": "FAIL", "detail": "mdout file not found"}]}
 
-    content = Path(mdout_file).read_text()
+    content = ""
+    with open(mdout_file, 'rb') as f:
+        f.seek(0, 2)  # end
+        size = f.tell()
+        f.seek(max(0, size - 102400))  # last 100KB
+        content = f.read().decode('utf-8', errors='ignore')
 
     # --- Check 1: FATAL errors ---
     fatal_patterns = [
@@ -1421,17 +1512,24 @@ def validate_step(mdout_file, expected_nstep=None, min_density=None,
             result["diagnostics"]["final_temp"] = round(avg_temp, 2)
             if avg_temp < 1.0:  # minimization
                 result["checks"].append({"check": "temperature", "status": "INFO", "detail": "Minimization (TEMP≈0)"})
-            elif abs(avg_temp - 300.0) > 20.0 and avg_temp > 10:
+            elif abs(avg_temp - target_temp) > 2 * temp_tolerance and avg_temp > 10:
+                result["checks"].append({
+                    "check": "temperature",
+                    "status": "FAIL",
+                    "detail": f"Average temperature {avg_temp:.1f} K deviates from target {target_temp:.1f} K by > {2*temp_tolerance:.0f} K — system not thermally equilibrated",
+                })
+                result["status"] = "FAIL"
+            elif abs(avg_temp - target_temp) > temp_tolerance and avg_temp > 10:
                 result["checks"].append({
                     "check": "temperature",
                     "status": "WARN",
-                    "detail": f"Average temperature {avg_temp:.1f} K deviates from 300 K by > 20 K",
+                    "detail": f"Average temperature {avg_temp:.1f} K deviates from target {target_temp:.1f} K by > {temp_tolerance:.0f} K — extend equilibration before production",
                 })
             else:
                 result["checks"].append({
                     "check": "temperature",
                     "status": "PASS",
-                    "detail": f"Temperature stable at {avg_temp:.1f} K",
+                    "detail": f"Temperature stable at {avg_temp:.1f} K (target {target_temp:.0f} ±{temp_tolerance:.0f})",
                 })
 
     # --- Check 5: rst7 file exists ---
@@ -1522,10 +1620,13 @@ def validate_tleap(log_file):
         long_bonds = re.findall(r'bond of ([\d.]+) angstroms between .* atoms:\n-------\s+(.+)', content)
         close_contacts = re.findall(r'Close contact of ([\d.]+) angstroms between', content)
 
+        _std_res = STANDARD_AA | {"HOH", "WAT", "NA", "CL", "K", "MG", "CA", "ZN", "FE", "MN", "NI", "CU"}
         ligand_bond_warnings = []
         protein_bond_warnings = []
         for dist, atoms in long_bonds:
-            if any(res in atoms for res in ["6ZV", "A1A", "IRE", "MOL"]):
+            tokens = re.findall(r'\b([A-Z0-9]{2,4})\b', atoms)
+            is_ligand = any(t not in _std_res for t in tokens if len(t) >= 2)
+            if is_ligand:
                 ligand_bond_warnings.append(f"{dist}Å: {atoms.strip()}")
             else:
                 protein_bond_warnings.append(f"{dist}Å: {atoms.strip()}")
@@ -1585,28 +1686,32 @@ def generate_equil_density_script(output_path, prmtop, rst_in, rst_out,
                                     mdin_path, work_dir, job_name="equil_density",
                                     prod_mdin=None, prod_mdout=None,
                                     prod_rst=None, prod_nc=None,
-                                    max_iter=30, target_density=0.98):
+                                    max_iter=30, target_density=1.00,
+                                    density_tolerance=0.05,
+                                    density_fluct_max=0.02,
+                                    temperature=300.0):
     """Generate a SLURM script with pmemd.cuda restart loop for density convergence.
 
-    This is the standard template for equilibrating a system from low density
-    (after restrained equil) to ~1.0 g/cc on GPU. Replaces ad-hoc sander workarounds.
+    Convergence criteria (both must hold):
+      |mean(density last 5 frames) - target_density| <= density_tolerance
+      max(density last 5 frames) - min(...) < density_fluct_max
 
-    The script:
-    1. Runs pmemd.cuda in 5000-step bursts with Berendsen barostat (barostat=1, taup=0.5)
-    2. After each burst, checks if the rst7 was written (ntwr=500 ensures it's saved on crash)
-    3. On crash: advances from the checkpoint rst7 (GPU grid cells regenerate on restart)
-    4. On success: checks density, continues if < target_density
-    5. When density converges: optionally proceeds to production
+    Default: target=1.00 g/cc, ±0.05 (so range 0.95–1.05), fluctuation < 0.02.
+    Density is parsed from the time-series Density lines only — averages and
+    RMS-fluctuation sections are explicitly excluded by a python helper.
     """
-    # Write the burst mdin alongside the script
-    burst_mdin = Path(mdin_path).parent / "equil_density_burst.mdin"
-    burst_mdin_content = """Equil density burst - 10 ps NPT with Berendsen barostat
+    mdin_dir = Path(mdin_path)
+    if mdin_dir.suffix:
+        mdin_dir = mdin_dir.parent
+    mdin_dir.mkdir(parents=True, exist_ok=True)
+    burst_mdin = mdin_dir / "equil_density_burst.mdin"
+    burst_mdin_content = f"""Equil density burst - 10 ps NPT with Berendsen barostat
  &cntrl
   imin=0, irest=1, ntx=5,
   nstlim=5000, dt=0.002,
   ntc=2, ntf=2,
   ntt=3, gamma_ln=1.0,
-  temp0=300.0,
+  temp0={temperature:.1f},
   ntp=1, barostat=1, pres0=1.0, taup=0.5,
   ntpr=500, ntwx=0, ntwr=500,
   ioutfm=1,
@@ -1614,6 +1719,7 @@ def generate_equil_density_script(output_path, prmtop, rst_in, rst_out,
   ig=-1,
   cut=10.0,
  /
+
 """
     burst_mdin.write_text(burst_mdin_content)
 
@@ -1636,12 +1742,34 @@ def generate_equil_density_script(output_path, prmtop, rst_in, rst_out,
     equil_dir = Path(rst_out).parent
     script_lines.append(f"mkdir -p {equil_dir}")
     script_lines.append("")
-    script_lines.append(f'echo "=== Density convergence: pmemd.cuda restart loop (target >= {target_density} g/cc) ==="')
+    script_lines.append(f'echo "=== Density convergence: pmemd.cuda restart loop "')
+    script_lines.append(f'echo "    target {target_density:.3f} +/- {density_tolerance:.3f} g/cc, fluctuation < {density_fluct_max:.3f}"')
     script_lines.append("")
     script_lines.append(f"RST_IN={rst_in}")
     script_lines.append(f"MAX_ITER={max_iter}")
     script_lines.append(f"TARGET={target_density}")
+    script_lines.append(f"TOL={density_tolerance}")
+    script_lines.append(f"FLUCT_MAX={density_fluct_max}")
     script_lines.append("iter=0")
+    script_lines.append("")
+    script_lines.append("# Python helper: parse time-series Density lines only (skip AVERAGES / RMS FLUCT sections).")
+    script_lines.append("parse_density() {")
+    script_lines.append('    python3 - "$1" "$TARGET" "$TOL" "$FLUCT_MAX" <<\'PYEOF\'')
+    script_lines.append("import sys, re")
+    script_lines.append("path, target, tol, fmax = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4])")
+    script_lines.append("try: text = open(path).read()")
+    script_lines.append("except Exception: print('ERR no_mdout 0 0'); sys.exit(0)")
+    script_lines.append("# Find time-series block end (start of AVERAGES section)")
+    script_lines.append("avg_idx = text.find('A V E R A G E S')")
+    script_lines.append("ts = text[:avg_idx] if avg_idx > 0 else text")
+    script_lines.append("vals = [float(m) for m in re.findall(r'Density\\s+=\\s+([0-9.]+)', ts) if float(m) > 0.1]")
+    script_lines.append("if not vals: print('ERR no_density 0 0'); sys.exit(0)")
+    script_lines.append("tail = vals[-5:] if len(vals) >= 5 else vals")
+    script_lines.append("mean = sum(tail)/len(tail); fluct = max(tail) - min(tail)")
+    script_lines.append("ok = (abs(mean - target) <= tol) and (fluct < fmax)")
+    script_lines.append("print(f\"{'YES' if ok else 'NO'} {mean:.4f} {fluct:.4f}\")")
+    script_lines.append("PYEOF")
+    script_lines.append("}")
     script_lines.append("")
     script_lines.append("while [ $iter -lt $MAX_ITER ]; do")
     script_lines.append(f"    OUT={equil_dir}/density_r${{iter}}.mdout")
@@ -1656,20 +1784,17 @@ def generate_equil_density_script(output_path, prmtop, rst_in, rst_out,
     script_lines.append(f"      -x  /dev/null")
     script_lines.append("")
     script_lines.append("    exit_code=$?")
-    script_lines.append("    density=$(grep 'Density' $OUT 2>/dev/null | grep -v '0\\.00' | tail -1 | awk '{print $NF}')")
-    script_lines.append('    echo "  Iteration $iter: exit=$exit_code  density=$density"')
+    script_lines.append("    read STATUS MEAN FLUCT <<< $(parse_density $OUT)")
+    script_lines.append('    echo "  Iteration $iter: exit=$exit_code  mean_density=$MEAN  fluct=$FLUCT  converged=$STATUS"')
     script_lines.append("")
     script_lines.append('    if [ -f "$RST_OUT" ]; then')
     script_lines.append("        RST_IN=$RST_OUT")
-    script_lines.append('        if [ $exit_code -eq 0 ]; then')
-    script_lines.append('            converged=$(python3 -c "print(\'yes\' if float(\'${density:-0}\') >= $TARGET else \'no\')" 2>/dev/null)')
-    script_lines.append('            if [ "$converged" = "yes" ]; then')
-    script_lines.append(f'                echo "  Density converged at $density g/cc after $iter iterations"')
-    script_lines.append(f'                cp $RST_OUT {rst_out}')
-    script_lines.append("                break")
-    script_lines.append("            fi")
-    script_lines.append("        else")
-    script_lines.append('            echo "  Crashed at iter $iter, advancing from checkpoint (density=$density)..."')
+    script_lines.append('        if [ $exit_code -eq 0 ] && [ "$STATUS" = "YES" ]; then')
+    script_lines.append(f'            echo "  Density converged: mean=$MEAN g/cc, fluct=$FLUCT after $iter iterations"')
+    script_lines.append(f'            cp $RST_OUT {rst_out}')
+    script_lines.append("            break")
+    script_lines.append("        elif [ $exit_code -ne 0 ]; then")
+    script_lines.append('            echo "  Crashed at iter $iter, advancing from checkpoint (mean=$MEAN)..."')
     script_lines.append("        fi")
     script_lines.append("    else")
     script_lines.append('        echo "  WARNING: no rst7 at iter $iter, repeating..."')
@@ -1850,6 +1975,8 @@ Examples:
     cv = sub.add_parser("convergence", help="Check convergence of a data file")
     cv.add_argument("data_file")
     cv.add_argument("--column", type=int, default=1)
+    cv.add_argument("--abs-threshold", type=float, default=0.5,
+                    help="Absolute drift threshold (skill default 0.5 Å for RMSD; use 5.0 for temp K, 0.02 for density g/cc)")
 
     lf = sub.add_parser("ls", help="List files in a directory")
     lf.add_argument("directory", default=".", nargs="?")
@@ -1865,12 +1992,20 @@ Examples:
     pf.add_argument("pdb_file")
     pf.add_argument("--no-ligands", action="store_true", help="Skip ligand H-atom checks")
 
+    lm = sub.add_parser("loop-model", help="Fill missing residue ranges using AlphaFold/ESMFold")
+    lm.add_argument("--pdb", required=True, help="Crystal PDB with chain breaks")
+    lm.add_argument("--missing", required=True, help="Missing ranges e.g. 'A:86-91,A:120-125'")
+    lm.add_argument("--uniprot", required=True, help="UniProt accession for AlphaFold query")
+    lm.add_argument("--out", required=True, help="Output assembled PDB path")
+
     vs = sub.add_parser("validate-step", help="Validate an MD step completed successfully (gate between pipeline steps)")
     vs.add_argument("mdout")
     vs.add_argument("--expected-nstep", type=int, default=None, help="Expected final NSTEP")
     vs.add_argument("--min-density", type=float, default=None, help="Minimum acceptable density (g/cc)")
     vs.add_argument("--max-density", type=float, default=None, help="Maximum acceptable density (g/cc)")
     vs.add_argument("--check-rst7", default=None, help="Path to rst7 file that must exist")
+    vs.add_argument("--target-temp", type=float, default=300.0, help="Expected simulation temperature in K")
+    vs.add_argument("--temp-tolerance", type=float, default=10.0, help="Acceptable deviation from target temp before WARN (FAIL at 2x). Default 10 K")
 
     vtl = sub.add_parser("validate-tleap", help="Validate a tLEaP log file")
     vtl.add_argument("log_file")
@@ -1888,7 +2023,10 @@ Examples:
     ged.add_argument("--prod-rst", default=None)
     ged.add_argument("--prod-nc", default=None)
     ged.add_argument("--max-iter", type=int, default=30)
-    ged.add_argument("--target-density", type=float, default=0.98)
+    ged.add_argument("--target-density", type=float, default=1.00, help="Target density (g/cc). Default 1.00 — pure water at STP.")
+    ged.add_argument("--density-tolerance", type=float, default=0.05, help="Tolerance around target (default 0.05 → range 0.95–1.05)")
+    ged.add_argument("--density-fluct-max", type=float, default=0.02, help="Max acceptable density fluctuation in last 5 frames")
+    ged.add_argument("--temperature", type=float, default=300.0, help="Simulation temperature in K")
 
     args = parser.parse_args()
 
@@ -1984,7 +2122,7 @@ Examples:
     elif args.command == "energy":
         print(json.dumps(read_mdout(args.mdout, args.last), indent=2))
     elif args.command == "convergence":
-        print(json.dumps(check_convergence(args.data_file, args.column), indent=2))
+        print(json.dumps(check_convergence(args.data_file, args.column, args.abs_threshold), indent=2))
     elif args.command == "ls":
         for f in list_files(args.directory, args.pattern):
             print(f"  {f['name']:40s} {f['size']/1024:>10.1f} KB  {f['modified']}")
@@ -1995,10 +2133,23 @@ Examples:
     elif args.command == "preflight":
         result = preflight(args.pdb_file, check_ligands=not args.no_ligands)
         print(json.dumps(result, indent=2))
+    elif args.command == "loop-model":
+        import subprocess as _subprocess
+        result = _subprocess.run(
+            [sys.executable,
+             str(BASE_DIR / "scripts" / "loop_model.py"),
+             "--pdb", args.pdb,
+             "--missing", args.missing,
+             "--uniprot", args.uniprot,
+             "--out", args.out],
+            check=False
+        )
+        sys.exit(result.returncode)
     elif args.command == "validate-step":
         result = validate_step(args.mdout, expected_nstep=args.expected_nstep,
                                 min_density=args.min_density, max_density=args.max_density,
-                                check_rst7=args.check_rst7)
+                                check_rst7=args.check_rst7, target_temp=args.target_temp,
+                                temp_tolerance=args.temp_tolerance)
         print(json.dumps(result, indent=2))
     elif args.command == "validate-tleap":
         result = validate_tleap(args.log_file)
@@ -2010,7 +2161,10 @@ Examples:
             work_dir=args.work_dir, job_name=args.job_name,
             prod_mdin=args.prod_mdin, prod_mdout=args.prod_mdout,
             prod_rst=args.prod_rst, prod_nc=args.prod_nc,
-            max_iter=args.max_iter, target_density=args.target_density)
+            max_iter=args.max_iter, target_density=args.target_density,
+            density_tolerance=args.density_tolerance,
+            density_fluct_max=args.density_fluct_max,
+            temperature=args.temperature)
         print(json.dumps(result, indent=2))
     else:
         parser.print_help()

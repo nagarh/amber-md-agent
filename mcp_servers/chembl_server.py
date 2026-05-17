@@ -127,6 +127,11 @@ def compound_search(name, max_results=5):
         return {"query": name, "results": [], "message": "No compounds found in ChEMBL"}
 
     compounds = [_format_molecule(m) for m in molecules[:max_results]]
+
+    if len(molecules) > 1:
+        names = [r.get('pref_name', r.get('molecule_chembl_id', 'unknown')) for r in molecules[:3]]
+        print(f"WARNING: '{name}' matched {len(molecules)} compounds: {names}. Using first match. Verify this is correct.", file=sys.stderr)
+
     return {"query": name, "results": compounds, "n_results": len(compounds)}
 
 
@@ -220,7 +225,7 @@ def get_bioactivity(compound, target=None, activity_type=None, max_results=20):
         "n_activities": len(activities),
         "activities": activities,
         "note": (
-            "dg_kcal_mol is computed as RT·ln(Ki_M) at 300 K — negative means favourable binding. "
+            "dg_kcal_mol is computed as RT·ln(Ki_M) at 300 K (matches MD simulation temperature) — negative means favourable binding. "
             "PMF from umbrella sampling is positive (work to unbind). Sign convention: ΔG_bind = -PMF_unbind."
         ),
     }

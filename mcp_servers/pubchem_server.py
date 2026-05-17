@@ -178,10 +178,15 @@ def get_3d_conformer(cid, output_path=None):
     if sdf and len(sdf) > 100:
         source = "3d"
     else:
-        # Fall back to 2D
-        url_2d = f"{PUBCHEM_API}/compound/cid/{cid}/record/SDF/?record_type=2d"
-        sdf = _http_get_raw(url_2d)
-        source = "2d"
+        # 3D conformer is unavailable — do NOT fall back to 2D silently.
+        # 2D coordinates break RDKit AddHs and antechamber parametrization.
+        raise RuntimeError(
+            f"No 3D conformer available for CID {cid}. "
+            f"2D coordinates cannot be used for MD parametrization. "
+            f"Options: (1) Generate 3D coords with RDKit ETKDG from SMILES, "
+            f"(2) Use a crystal structure HETATM from the PDB, "
+            f"(3) Provide a mol2/SDF file with 3D coordinates."
+        )
 
     if not sdf or len(sdf) < 100:
         return {"error": f"No conformer available for CID {cid}"}
@@ -189,13 +194,10 @@ def get_3d_conformer(cid, output_path=None):
     result = {
         "cid": cid,
         "source": source,
+        "is_3d": True,
         "sdf_length": len(sdf),
         "sdf_content": sdf,
     }
-
-    if source == "2d":
-        result["warning"] = ("Only 2D coordinates available. Use OpenBabel or RDKit "
-                              "to generate 3D coordinates before antechamber.")
 
     if output_path:
         with open(output_path, 'w') as f:

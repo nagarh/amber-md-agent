@@ -63,16 +63,48 @@ def strip_incomplete_termini(input_pdb, output_pdb):
 
         # Keep atoms in this segment that are in resids_clean and <= last_good
         valid_resids = set(rid for rid in resids_clean if rid <= last_good)
+        min_rid = min(valid_resids)
+        max_rid = max(valid_resids)
         sel = u.select_atoms(
-            f"segid {seg.segid} and (" +
-            " or ".join(f"resid {rid}" for rid in sorted(valid_resids)) +
-            ")"
+            f"segid {seg.segid} and resid {min_rid}-{max_rid}"
         )
         keep_indices.extend(sel.indices)
         if last_good != resids_clean[-1]:
             print(f"  [{seg.segid}] Stripped incomplete terminal residue(s) after resid {last_good}")
 
     u.atoms[keep_indices].write(output_pdb)
+
+
+def mark_disulfides(pdb):
+    """
+    Detect disulfide bonds by SG-SG distance (< 2.5 Å), rename both CYS -> CYX
+    in place, and rewrite the PDB. tLEaP applies an HG hydrogen to plain CYS,
+    which produces "No torsion terms for HS-SH-SH-HS" errors on bonded cysteines.
+    Returns the disulfide pairs in the file's residue numbering so the caller
+    can emit tLEaP `bond` commands.
+    """
+    import MDAnalysis as mda
+    import numpy as np
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    u = mda.Universe(pdb)
+    sg = u.select_atoms("resname CYS CYX and name SG")
+    pairs = []
+    for i in range(len(sg)):
+        for j in range(i + 1, len(sg)):
+            if np.linalg.norm(sg[i].position - sg[j].position) < 2.5:
+                sg[i].residue.resname = "CYX"
+                sg[j].residue.resname = "CYX"
+                pairs.append((sg[i].residue.resid, sg[j].residue.resid))
+
+    if pairs:
+        u.atoms.write(pdb)
+        print(f"  Detected {len(pairs)} disulfide bond(s) — renamed CYS -> CYX")
+        print("  tLEaP bond commands (final numbering):")
+        for a, b in pairs:
+            print(f"    bond mol.{a}.SG mol.{b}.SG")
+    return pairs
 
 
 if __name__ == "__main__":
@@ -102,6 +134,9 @@ if __name__ == "__main__":
     finally:
         if os.path.exists(tmp_pdb):
             os.unlink(tmp_pdb)
+
+    # Step 3: auto-detect disulfides and rename CYS -> CYX in the capped PDB
+    mark_disulfides(output_pdb)
 
     with open(output_pdb) as f:
         n_lines = sum(1 for l in f if l.startswith("ATOM"))

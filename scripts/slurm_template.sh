@@ -29,6 +29,7 @@
 # ── Amber Environment Setup ───────────────────────────────────────────────────
 # These lines are copied verbatim after the SBATCH block in every job script.
 # Add module loads, source commands, conda activations, or any setup needed.
+module load gnu12/12.2.0
 module load amber/24
 source /opt/shared/apps/amber/24/amber.sh
 
@@ -36,4 +37,4 @@ source /opt/shared/apps/amber/24/amber.sh
 # Base directory where simulation output will be written.
 # Studies go under: WORK_BASE/studies/<study_name>/
 # Leave empty to use the current directory.
-WORK_BASE="/home/hn533621/Portfolio/amber-md-agent"
+WORK_BASE=""

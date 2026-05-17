@@ -1502,7 +1502,10 @@ def validate_step(mdout_file, expected_nstep=None, min_density=None,
         })
 
     # --- Check 4: Temperature stability ---
-    temp_matches = re.findall(r'TEMP\(K\)\s+=\s+([\d.]+)', content)
+    # Stop parsing at AVERAGES section to avoid RMS FLUCTUATIONS temps (which are ~0-10 K)
+    averages_idx = content.find("A V E R A G E S")
+    content_before_averages = content[:averages_idx] if averages_idx >= 0 else content
+    temp_matches = re.findall(r'TEMP\(K\)\s+=\s+([\d.]+)', content_before_averages)
     if temp_matches:
         temps = [float(t) for t in temp_matches]
         # Check last 20% of temps for stability

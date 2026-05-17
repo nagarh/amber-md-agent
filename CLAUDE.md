@@ -9,7 +9,7 @@ You operate on an HPC cluster via Claude Code CLI. **STRICT RULE: NEVER run any 
 **Python environment:** Always use `/home/hn533621/.conda/envs/amber_development/bin/python` for all Python scripts (rdkit, parmed, MDAnalysis, propka3, numpy, scipy, matplotlib all installed there). Never use the default `python` or `python3` on login node for agent scripts.
 
 **Three resources you reason from:**
-- **Toolkit** (`md_agent.py`) — low-level functions for every Amber operation
+- **Toolkit** (`scripts/md_agent.py`) — low-level functions for every Amber operation
 - **RAG** (Amber manual) — primary and authoritative knowledge source
 - **Skills** (`skills/`) — load on demand for specific workflows
 
@@ -106,15 +106,23 @@ tleap -f system.in > tleap.out 2>&1
 ## File Organization
 
 ```
-amber-md-agent-improvements/
-├── md_agent.py
+amber-md-agent/
 ├── skills/              ← project skills (this agent)
 ├── scripts/
+│   ├── md_agent.py          ← toolkit: all Amber ops, RAG, SLURM
 │   ├── cap_protein.py       ← ACE/NME terminal capping
 │   ├── loop_model.py        ← AlphaFold/ESMFold loop modeling
 │   ├── prepare_ligand.py    ← legacy ligand prep (use amber-ligand.md instead)
 │   └── slurm_template.sh    ← cluster config — edit once for your cluster
-├── mcp_servers/         ← local Python MCP servers (pdb, pubchem, uniprot, alphafold, chembl, stringdb, pubmed)
+├── mcp_servers/
+│   ├── amber_mcp_server.py  ← FastMCP server: 35 tools wrapping md_agent.py
+│   ├── pdb_server.py        ← RCSB PDB search + structure info
+│   ├── pubchem_server.py    ← compound search + 3D conformers
+│   ├── uniprot_server.py    ← protein info, domains, variants
+│   ├── alphafold_server.py  ← AlphaFold structure + pLDDT
+│   ├── chembl_server.py     ← bioactivity, ADMET, drug targets
+│   ├── stringdb_server.py   ← protein interaction networks
+│   └── pubmed_server.py     ← literature search
 ├── CLAUDE.md
 └── studies/
     └── <study_name>/

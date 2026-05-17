@@ -276,7 +276,7 @@ echo "" >> studies/<study>/simulations/equil_density_burst.mdin
 tail -3 studies/<study>/simulations/equil_density_burst.mdin | cat -A   # must end with blank $
 ```
 
-**Step 3** — submit: `python md_agent.py sbatch studies/<study>/logs/equil_density.sh`
+**Step 3** — submit: `python scripts/md_agent.py sbatch studies/<study>/logs/equil_density.sh`
 
 Each burst = 10 ps (5000 steps) at `barostat=1, taup=0.5`. Restarts until BOTH:
 - `|mean(last 5 frames) - target_density| <= density_tolerance` (default target=1.00, tol=0.05 → range 0.95–1.05)
@@ -297,7 +297,7 @@ pmemd.cuda -O -i equil2.mdin -o equil2.mdout -p system.prmtop \
   -c equil/equil.rst7 -r equil2.rst7 -x equil2.nc
 
 # Validate before production
-python md_agent.py validate-step equil2.mdout --target-temp 300 --min-density 0.90
+python scripts/md_agent.py validate-step equil2.mdout --target-temp 300 --min-density 0.90
 # temperature must be ≥ 295 K before proceeding
 ```
 

@@ -1,0 +1,19 @@
+parm /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/system/system.prmtop
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/simulations/prod/prod.nc
+
+# Image and strip solvent
+autoimage
+strip :WAT,Na+,Cl-
+trajout /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/analysis/prod_stripped.nc
+
+# Align to first frame on CA
+rms first @CA,C,N
+
+# Backbone RMSD vs first frame
+rmsd backbone @CA,C,N out /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/analysis/rmsd.dat
+
+# Per-residue RMSF by CA
+atomicfluct @CA out /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/analysis/rmsf.dat byres
+
+run
+quit

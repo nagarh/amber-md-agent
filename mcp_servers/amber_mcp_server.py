@@ -6,7 +6,7 @@ from typing import Annotated, Optional
 from fastmcp import FastMCP
 from pydantic import Field
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 import md_agent
 
 mcp = FastMCP("amber-md-agent")

@@ -325,5 +325,88 @@ def check_convergence(
         return {"status": "error", "error": str(e), "tool": "check_convergence"}
 
 
+# ─── RAG Tools ────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def rag_query(
+    question: Annotated[str, Field(description="Natural language question about Amber e.g. 'What cut value for PME?'")],
+    top_k: Annotated[int, Field(description="Number of manual chunks to retrieve")] = 5,
+    index_path: Annotated[Optional[str], Field(description="RAG index path (default: auto-detected)")] = None,
+) -> dict:
+    """Query Amber manual RAG index. MUST call before writing any mdin or tLEaP script."""
+    try:
+        if not question:
+            raise ValueError("question cannot be empty")
+        result = md_agent.rag_query(question, top_k=top_k, index_path=index_path)
+        return {"status": "ok", "results": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "rag_query"}
+
+
+@mcp.tool()
+def rag_ingest(
+    manual_path: Annotated[str, Field(description="Path to Amber manual PDF e.g. 'Amber24.pdf'")],
+    append: Annotated[bool, Field(description="Append to existing index instead of rebuilding")] = False,
+) -> dict:
+    """Ingest Amber manual PDF into RAG index. Run once per manual version."""
+    try:
+        result = md_agent.rag_ingest(manual_path, append=append)
+        return {"status": "ok", "index": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "rag_ingest"}
+
+
+@mcp.tool()
+def rag_section(
+    section_name: Annotated[str, Field(description="Section name to retrieve e.g. 'Free Energy', 'REMD'")],
+    index_path: Annotated[Optional[str], Field(description="RAG index path (default: auto-detected)")] = None,
+) -> dict:
+    """Retrieve full section from Amber manual by name."""
+    try:
+        result = md_agent.rag_section(section_name, index_path=index_path)
+        return {"status": "ok", "section": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "rag_section"}
+
+
+@mcp.tool()
+def rag_page(
+    page_num: Annotated[int, Field(description="Page number to retrieve from Amber manual")],
+    index_path: Annotated[Optional[str], Field(description="RAG index path (default: auto-detected)")] = None,
+) -> dict:
+    """Retrieve specific page from Amber manual."""
+    try:
+        result = md_agent.rag_page(page_num, index_path=index_path)
+        return {"status": "ok", "page": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "rag_page"}
+
+
+@mcp.tool()
+def rag_pages(
+    start: Annotated[int, Field(description="Start page number (inclusive)")],
+    end: Annotated[int, Field(description="End page number (inclusive)")],
+    index_path: Annotated[Optional[str], Field(description="RAG index path (default: auto-detected)")] = None,
+) -> dict:
+    """Retrieve page range from Amber manual."""
+    try:
+        result = md_agent.rag_pages(start, end, index_path=index_path)
+        return {"status": "ok", "pages": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "rag_pages"}
+
+
+@mcp.tool()
+def rag_toc(
+    index_path: Annotated[Optional[str], Field(description="RAG index path (default: auto-detected)")] = None,
+) -> dict:
+    """List table of contents from ingested Amber manual index."""
+    try:
+        result = md_agent.rag_toc(index_path=index_path)
+        return {"status": "ok", "toc": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "tool": "rag_toc"}
+
+
 if __name__ == "__main__":
     mcp.run()

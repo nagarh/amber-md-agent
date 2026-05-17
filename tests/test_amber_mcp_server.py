@@ -124,3 +124,20 @@ class TestValidationTools:
         result = server.check_convergence(data_file="/nonexistent/rmsd.dat")
         assert result["status"] == "error"
         assert result["tool"] == "check_convergence"
+
+
+class TestRAGTools:
+    def test_rag_query_empty_question_returns_error(self):
+        result = server.rag_query(question="")
+        assert result["status"] == "error"
+        assert result["tool"] == "rag_query"
+
+    def test_rag_toc_returns_dict(self):
+        result = server.rag_toc()
+        assert isinstance(result, dict)
+        assert "status" in result
+
+    def test_rag_ingest_missing_file_returns_error(self):
+        result = server.rag_ingest(manual_path="/nonexistent/manual.pdf")
+        assert result["status"] == "error"
+        assert result["tool"] == "rag_ingest"

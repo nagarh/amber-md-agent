@@ -221,3 +221,61 @@ class TestValidateStepTemp:
         final_temp = result["validation"]["diagnostics"]["final_temp"]
         assert final_temp > 295.0, f"final_temp {final_temp} pulled down by RMS FLUCT 3.25 K value"
         assert final_temp < 305.0, f"final_temp {final_temp} looks like AVERAGES block leaked in"
+
+
+class TestDirectExecTools:
+    def test_run_tleap_missing_tool_called_with_args(self, tmp_path):
+        """run_tleap calls md_agent.run_tleap with correct args."""
+        from unittest.mock import patch
+        leap_in = tmp_path / "system.in"
+        leap_in.write_text("quit\n")
+        with patch("md_agent.run_tleap", return_value={"success": True, "stdout": "Done", "stderr": ""}) as mock:
+            result = server.run_tleap(input_file=str(leap_in), cwd=str(tmp_path))
+        mock.assert_called_once_with(str(leap_in), cwd=str(tmp_path))
+        assert result["status"] == "ok"
+        assert result["success"] is True
+
+    def test_run_tleap_failure_returns_error_status(self, tmp_path):
+        """run_tleap propagates failure from md_agent.run_tleap."""
+        from unittest.mock import patch
+        leap_in = tmp_path / "system.in"
+        leap_in.write_text("quit\n")
+        with patch("md_agent.run_tleap", return_value={"success": False, "stdout": "", "stderr": "tleap: command not found"}):
+            result = server.run_tleap(input_file=str(leap_in))
+        assert result["status"] == "error"
+        assert "tleap: command not found" in result["stderr"]
+
+    def test_run_tleap_exception_returns_error(self, tmp_path):
+        """run_tleap catches exceptions and returns error dict with tool key."""
+        from unittest.mock import patch
+        with patch("md_agent.run_tleap", side_effect=RuntimeError("no tleap")):
+            result = server.run_tleap(input_file="/any/file.in")
+        assert result["status"] == "error"
+        assert result["tool"] == "run_tleap"
+        assert "no tleap" in result["error"]
+
+    def test_run_cpptraj_called_with_args(self, tmp_path):
+        """run_cpptraj calls md_agent.run_cpptraj with correct args."""
+        from unittest.mock import patch
+        cpptraj_in = tmp_path / "analysis.in"
+        cpptraj_in.write_text("parm sys.prmtop\nquit\n")
+        with patch("md_agent.run_cpptraj", return_value={"success": True, "stdout": "Done", "stderr": ""}) as mock:
+            result = server.run_cpptraj(input_file=str(cpptraj_in), cwd=str(tmp_path))
+        mock.assert_called_once_with(str(cpptraj_in), cwd=str(tmp_path))
+        assert result["status"] == "ok"
+
+    def test_run_cpptraj_failure_returns_error_status(self, tmp_path):
+        """run_cpptraj propagates failure from md_agent.run_cpptraj."""
+        from unittest.mock import patch
+        with patch("md_agent.run_cpptraj", return_value={"success": False, "stdout": "", "stderr": "cpptraj: command not found"}):
+            result = server.run_cpptraj(input_file="/any/analysis.in")
+        assert result["status"] == "error"
+
+    def test_run_cpptraj_exception_returns_error(self):
+        """run_cpptraj catches exceptions and returns error dict with tool key."""
+        from unittest.mock import patch
+        with patch("md_agent.run_cpptraj", side_effect=RuntimeError("no cpptraj")):
+            result = server.run_cpptraj(input_file="/any/analysis.in")
+        assert result["status"] == "error"
+        assert result["tool"] == "run_cpptraj"
+        assert "no cpptraj" in result["error"]

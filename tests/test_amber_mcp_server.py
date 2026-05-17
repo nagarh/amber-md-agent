@@ -12,3 +12,25 @@ class TestConnectivity:
         assert result["status"] == "ok"
         assert isinstance(result.get("message"), str)
         assert result["message"]
+
+
+class TestPDBTools:
+    def test_fetch_pdb_empty_id_returns_error(self):
+        result = server.fetch_pdb(pdb_id="", output_dir="/tmp")
+        assert result["status"] == "error"
+        assert result["tool"] == "fetch_pdb"
+
+    def test_inspect_pdb_missing_file_returns_error(self):
+        result = server.inspect_pdb(pdb_file="/nonexistent/file.pdb")
+        assert result["status"] == "error"
+        assert result["tool"] == "inspect_pdb"
+
+    def test_clean_pdb_missing_file_returns_error(self):
+        result = server.clean_pdb(pdb_file="/nonexistent/file.pdb")
+        assert result["status"] == "error"
+        assert result["tool"] == "clean_pdb"
+
+    def test_preflight_missing_file_returns_error(self):
+        result = server.preflight(pdb_file="/nonexistent/file.pdb")
+        assert result["status"] == "error"
+        assert result["tool"] == "preflight"

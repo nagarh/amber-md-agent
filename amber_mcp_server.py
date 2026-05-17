@@ -481,7 +481,9 @@ def plot_timeseries(
 ) -> dict:
     """Plot time-series data (RMSD, energy, density) as PNG."""
     try:
-        md_agent.plot_timeseries(data_file, output_png, xlabel=xlabel, ylabel=ylabel, title=title, column_x=column_x, column_y=column_y, time_scale=time_scale)
+        result = md_agent.plot_timeseries(data_file, output_png, xlabel=xlabel, ylabel=ylabel, title=title, column_x=column_x, column_y=column_y, time_scale=time_scale)
+        if isinstance(result, dict) and not result.get("success", True):
+            return {"status": "error", "error": result.get("error", "plot failed"), "tool": "plot_timeseries"}
         return {"status": "ok", "plot": output_png}
     except Exception as e:
         return {"status": "error", "error": str(e), "tool": "plot_timeseries"}
@@ -499,7 +501,9 @@ def plot_bar(
 ) -> dict:
     """Plot per-residue bar chart (RMSF, B-factors) as PNG."""
     try:
-        md_agent.plot_bar(data_file, output_png, xlabel=xlabel, ylabel=ylabel, title=title, column_x=column_x, column_y=column_y)
+        result = md_agent.plot_bar(data_file, output_png, xlabel=xlabel, ylabel=ylabel, title=title, column_x=column_x, column_y=column_y)
+        if isinstance(result, dict) and not result.get("success", True):
+            return {"status": "error", "error": result.get("error", "plot failed"), "tool": "plot_bar"}
         return {"status": "ok", "plot": output_png}
     except Exception as e:
         return {"status": "error", "error": str(e), "tool": "plot_bar"}

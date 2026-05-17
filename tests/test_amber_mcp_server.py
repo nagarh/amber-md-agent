@@ -152,6 +152,22 @@ class TestAnalysisTools:
         assert isinstance(result, dict)
         assert "status" in result
 
+    def test_plot_timeseries_missing_file_returns_error(self):
+        result = server.plot_timeseries(
+            data_file="/nonexistent/rmsd.dat",
+            output_png="/tmp/rmsd.png",
+        )
+        assert result["status"] == "error"
+        assert result["tool"] == "plot_timeseries"
+
+    def test_plot_bar_missing_file_returns_error(self):
+        result = server.plot_bar(
+            data_file="/nonexistent/rmsf.dat",
+            output_png="/tmp/rmsf.png",
+        )
+        assert result["status"] == "error"
+        assert result["tool"] == "plot_bar"
+
 
 class TestRAGTools:
     def test_rag_query_empty_question_returns_error(self):

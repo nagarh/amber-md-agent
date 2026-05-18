@@ -4,7 +4,7 @@ Full protein system preparation pipeline. Covers preflight → cleaning → capp
 
 ## Step 1 — Fetch & Validate Structure
 
-**If user provided PDB ID:** `python md_agent.py fetch <PDB_ID>` → skip to Step 2.
+**If user provided PDB ID:** `fetch_pdb(pdb_id="<PDB_ID>")` → skip to Step 2.
 
 **If protein name only:** Run full selection loop (see `amber-mcp.md` Structure Selection Loop):
 1. `pdb.search_pdb(target, organism)` → ranked by resolution, filter < 3.0 Å
@@ -27,15 +27,15 @@ Full protein system preparation pipeline. Covers preflight → cleaning → capp
 
 ## Step 2 — Inspect & Clean
 
-```bash
-python md_agent.py inspect <raw.pdb>
-python md_agent.py clean <raw.pdb> --output clean.pdb   # runs pdb4amber
+```
+inspect_pdb(pdb_file="<raw.pdb>")
+clean_pdb(pdb_file="<raw.pdb>", output_file="clean.pdb")   # runs pdb4amber
 ```
 
 ## Step 3 — Preflight (MANDATORY)
 
-```bash
-python md_agent.py preflight <clean.pdb>
+```
+preflight(pdb_file="<clean.pdb>")
 ```
 
 Fix ALL flagged issues before writing tLEaP scripts:
@@ -127,8 +127,8 @@ python scripts/cap_protein.py protein_only.pdb protein_capped.pdb
 
 ## Step 5 — Write tLEaP Script
 
-```bash
-python md_agent.py write-tleap tleap.in --commands "cmd1; cmd2; ..."
+```
+write_tleap(output_path="tleap.in", commands="cmd1; cmd2; ...")
 ```
 
 **Always use absolute paths** in all tLEaP commands — relative paths fail when SLURM sets `-D` to a subdirectory:
@@ -136,39 +136,64 @@ python md_agent.py write-tleap tleap.in --commands "cmd1; cmd2; ..."
 os.path.abspath(path)   # use when writing tLEaP scripts programmatically
 ```
 
-Typical tLEaP sequence:
+Typical tLEaP sequence — **FF/water/ion names from PLAN.md §Force fields, NOT hardcoded here**:
 ```
-source leaprc.protein.ff14SB
-source leaprc.water.tip3p
+# Replace <PROTEIN_FF>, <WATER>, <WATER_UPPER>BOX, <ION>, <PADDING> with values
+# selected in PLAN.md Step 4 §Force fields (per Tier 1/2/3 protocol in amber-workflow.md).
+# Do not paste this block with literal ff14SB/tip3p — agent must substitute per study.
+
+source leaprc.protein.<PROTEIN_FF>            # e.g. ff19SB, ff14SB, a99SB-disp
+source leaprc.water.<WATER>                   # e.g. opc, tip3p, tip4pew, spceb
 loadAmberParams /abs/path/to/ligand.frcmod
 MOL = loadMol2 /abs/path/to/ligand.mol2
 prot = loadPdb /abs/path/to/protein_capped.pdb
 sys = combine {prot MOL}
-addIons sys Na+ 0
-addIons sys Cl- 0
-solvateBox sys TIP3PBOX 12.0
+addIons sys <CATION> 0                        # e.g. Na+, K+
+addIons sys <ANION> 0                         # e.g. Cl-
+solvateBox sys <WATER_UPPER>BOX <PADDING>     # e.g. OPCBOX 12.0 (water keyword from PLAN)
 saveAmberParm sys /abs/path/to/system.prmtop /abs/path/to/system.inpcrd
 quit
 ```
 
-### Ion concentration
-Default — always use neutralize-only:
-```
-addIons sys Na+ 0    # adds enough Na+ to reach net charge = 0
-addIons sys Cl- 0    # adds enough Cl- to reach net charge = 0
-```
-`0` = "add as many as needed to neutralize." Both lines together handles both positive and negative net charges. This is standard for binding studies and free energy calculations — adding extra salt changes the reference state.
+**Common mismatch trap:** `leaprc.water.<X>` loads BOTH the water model AND the
+Joung-Cheatham ion params tuned for that water. If you `source leaprc.water.opc`
+the ions will be JC-OPC variants, not JC-TIP3P. Mixing leaprc.water.tip3p with
+manually-loaded opc params → wrong ion behavior. Always use the leaprc that
+matches your PLAN.md water choice.
 
-Only add physiological salt (150 mM NaCl) when user explicitly requests it or study specifically requires physiological ionic strength (DNA, highly charged proteins, ion-specific effects).
+### Ion concentration — agent decides per study
 
-### Box size
-| Padding | When |
-|---------|------|
-| 10 Å | Small peptides < 50 residues, compute time critical |
-| 12 Å | Standard — most protein-ligand binding studies |
-| 15 Å | Highly charged protein (net charge > ±10), large conformational changes, IDPs |
+Two options. Pick per study, justify in PLAN.md (cite manual page or precedent
+paper):
 
-Rule: box side must be > protein diameter + 2× padding AND > 2× PME cutoff (20 Å for cutoff=10). Check box dimensions after tLEaP: `python md_agent.py inspect system.prmtop`.
+**Neutralize-only** (`addIons sys <CATION> 0; addIons sys <ANION> 0`):
+- 0 = add as many as needed to reach net charge = 0
+- Reference state for free energy calculations (TI, MMPBSA, MMGBSA) —
+  added salt changes the reference Hamiltonian
+- Binding studies without explicit ionic strength dependence
+
+**Physiological salt** (~150 mM NaCl, explicit ion counts via `addIons sys Na+ <N>`):
+- Studies where ionic strength matters: highly charged proteins, IDPs (salt
+  affects polyelectrolyte effect), DNA/RNA (counterion condensation), membrane
+  protein potentials, ion-specific binding
+
+Compute exact ion count: N = round(0.150 mol/L × N_A × V_box_L). Cite manual
+page or precedent paper supporting the chosen scheme in PLAN.md.
+
+### Box size — agent decides per study
+
+Padding must satisfy `box_side > protein_diameter + 2 × padding` AND
+`box_side > 2 × PME_cutoff` (e.g. > 20 Å for cut=10 Å).
+
+Choice depends on:
+- Conformational space the simulation needs to sample (folded vs IDP vs allosteric)
+- Cutoff used (set in mdin, typically 8-12 Å)
+- Lit precedent for the same observable (Step 2b extraction — what padding did
+  precedent papers use?)
+- Compute budget (larger box → more atoms → slower)
+
+Document chosen padding in PLAN.md §Box with reason. Verify post-tLEaP via
+`inspect_pdb(pdb_file="system.prmtop")` that box dimensions satisfy the rule.
 
 ### Multimer / oligomer systems
 Load full multimer PDB (preferred — preserves inter-chain contacts):
@@ -189,23 +214,24 @@ bond sys.82.SG sys.331.SG   # chain A Cys82 — chain B Cys331
 
 ## Step 6 — Run tLEaP (via SLURM — never on login node)
 
-```bash
-python md_agent.py write-slurm studies/<study>/system/run_tleap.sh \
-  --commands "cd /abs/path/studies/<study>/system && tleap -f tleap.in > tleap.log 2>&1" \
-  --job-name tleap_<study> \
-  --work-dir /abs/path/studies/<study>/system \
-  --gpus 0 \
-  --walltime 00:30:00
-
-python md_agent.py sbatch studies/<study>/system/run_tleap.sh
+```
+write_slurm(
+  output_path="studies/<study>/system/run_tleap.sh",
+  commands="cd /abs/path/studies/<study>/system && tleap -f tleap.in > tleap.log 2>&1",
+  job_name="tleap_<study>",
+  work_dir="/abs/path/studies/<study>/system",
+  gpus=0,
+  walltime="00:30:00"
+)
+submit_slurm(script_path="studies/<study>/system/run_tleap.sh")
 ```
 
 Poll until done, then read `tleap.log` for validation.
 
 ## Step 7 — Validate tLEaP Output (MANDATORY)
 
-```bash
-python md_agent.py validate-tleap studies/<study>/system/tleap.log
+```
+validate_tleap(log_file="studies/<study>/system/tleap.log")
 ```
 
 | Status | Indicator |
@@ -229,4 +255,4 @@ If FAIL → diagnose, fix tLEaP script, re-run. Do NOT proceed to simulation.
 ```bash
 ls -lh system.prmtop system.inpcrd   # both must exist, non-zero size
 ```
-Then `python md_agent.py inspect system.prmtop`.
+Then `inspect_pdb(pdb_file="system.prmtop")`.

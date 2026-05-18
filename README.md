@@ -2,13 +2,13 @@
 
 # AmberMD Agent
 
-**Agentic MD simulation framework — RAG-grounded planning · 7 MCP tool servers · HITL approval gate · SLURM orchestration**
+**Agentic MD simulation framework — RAG-grounded planning · 8 MCP tool servers · HITL approval gate · SLURM orchestration**
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Amber](https://img.shields.io/badge/Amber-24-CC0000?style=flat-square)](https://ambermd.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Powered_by-Claude_Code-7C3AED?style=flat-square)](https://claude.ai/code)
-[![MCP Servers](https://img.shields.io/badge/MCP_Servers-7_live-22C55E?style=flat-square)](#-intelligence-layer)
+[![MCP Servers](https://img.shields.io/badge/MCP_Servers-8_live-22C55E?style=flat-square)](#-intelligence-layer)
 [![SLURM](https://img.shields.io/badge/HPC-SLURM_Ready-F97316?style=flat-square)](#-quick-start)
 
 *Give it a scientific question — the agent does the research for you. It retrieves
@@ -139,6 +139,14 @@ Agent set up 20 umbrella windows, submitted as a SLURM array, ran WHAM analysis 
 
 ---
 
+**[Trp-cage (1L2Y) — T-REMD Folding Thermodynamics](studies/trpcage_remd_folding/)**
+
+> *"The folding landscape of the Trp-cage miniprotein remains incompletely characterized at physiological conditions. Standard MD at 300 K is kinetically trapped and fails to sample the full conformational ensemble within accessible timescales. Use REMD to overcome these barriers and rigorously characterize the folding/unfolding thermodynamics across 270–600 K."*
+
+Agent designed 16-replica temperature REMD (geometric ladder 270→600 K), pre-equilibrated each replica at its target T via SLURM array, then ran `pmemd.cuda.MPI` multipmemd across 2 nodes × 8 GPUs (`srun --mpi=pmix`). Completed 100 ns/replica (1.6 µs aggregate) with 100,000 exchanges in 3.73 hr wall, captured sharp two-state folding transition (P_fold drops 0.94 → 0.004 across 392–413 K), ΔH ≈ 12–15 kcal/mol matching English 2014 TC10b REMD. Study also surfaced ff14SB+TIP3P force-field over-stabilization (computed Tm ≈ 414 K vs experimental 315 K) — triggered the agent-wide refactor to dynamic per-study FF selection.
+
+---
+
 ## Quick Start
 
 **1. Clone**
@@ -147,24 +155,69 @@ git clone https://github.com/nagarh/amber-md-agent
 cd amber-md-agent
 ```
 
-**2. Configure your cluster** — edit `scripts/slurm_template.sh` once:
+**2. Install Python deps** — recommended via conda:
+```bash
+conda create -n amber_development python=3.11 -y
+conda install -n amber_development -c conda-forge \
+    numpy scipy matplotlib rdkit parmed mdanalysis propka biopython pdfminer.six -y
+# (FastMCP if pip required for MCP servers: pip install fastmcp)
+```
+Use the resulting interpreter path everywhere (e.g. `~/.conda/envs/amber_development/bin/python`).
+
+**3. Register the 8 MCP servers** — edit `.mcp.json` (Claude Code reads this at startup).
+
+The shipped `.mcp.json` has absolute paths to the author's environment. Replace
+them with YOUR Python interpreter + YOUR cloned repo path:
+
+```bash
+# One-liner: rewrite .mcp.json for the current user
+PY=$(which python)            # e.g. /home/<you>/.conda/envs/amber_development/bin/python
+REPO=$(pwd)                   # the cloned amber-md-agent directory
+python -c "
+import json, sys
+cfg = json.load(open('.mcp.json'))
+for name, srv in cfg['mcpServers'].items():
+    srv['command'] = '${PY}'
+    srv['args']    = [a.replace('/home/hn533621/Portfolio/amber-md-agent/', '') if a.startswith('/home/') else a for a in srv['args']]
+    srv['cwd']     = '${REPO}'
+json.dump(cfg, open('.mcp.json','w'), indent=2)
+print('.mcp.json rewritten for', '${REPO}')
+"
+```
+
+Or manually edit each entry's `command` (Python path), `args` (relative path
+from `cwd`), and `cwd` (clone location). Example for one entry:
+```json
+"amber": {
+  "command": "/path/to/your/python",
+  "args": ["mcp_servers/amber_mcp_server.py"],
+  "cwd": "/path/to/cloned/amber-md-agent"
+}
+```
+All 8 servers (`amber`, `pdb`, `uniprot`, `pubchem`, `chembl`, `alphafold`, `stringdb`, `pubmed`) follow the same pattern.
+
+**4. Configure your cluster** — edit `scripts/slurm_template.sh` once:
 ```bash
 #SBATCH --partition=gpu          # your partition
 #SBATCH --gres=gpu:a100:1        # your GPU type
 module load amber/24             # your Amber module
 ```
 
-**3. Verify**
+**5. Verify**
 ```bash
-python md_agent.py check-env
+python scripts/md_agent.py check-env       # tools + RAG index check
+claude mcp list                             # confirms all 8 servers register
 ```
 
-**4. Start**
+**6. Start**
 ```bash
 claude        # opens Claude Code — MCP servers auto-connect via .mcp.json
 ```
 
 > The Amber manual RAG index (`references/amber_index.json`) is pre-built and included. No manual setup required.
+>
+> If `claude mcp list` shows red/missing servers, check that `command` resolves
+> to a Python with FastMCP + required deps installed, and that `cwd` exists.
 
 ---
 
@@ -187,15 +240,16 @@ Domain knowledge loaded automatically — no prompting needed:
 
 Structured tool-use via MCP protocol — the agent resolves structures, SMILES, and experimental data at query time, not from cache:
 
-| Server | Database | Provides |
-|--------|----------|----------|
+| Server | Backend | Provides |
+|--------|---------|----------|
+| `amber` | FastMCP wrapper over `md_agent.py` | Every Amber operation as MCP tool: tLEaP, antechamber, cpptraj, pmemd submit, RAG manual queries, SLURM orchestration, validation gates |
 | `pdb` | RCSB Protein Data Bank | Structure search, quality validation reports, ligand info |
-| `uniprot` | UniProt/Swiss-Prot | Domain boundaries, disease mutations, PTMs, disulfides |
+| `uniprot` | UniProt/Swiss-Prot | Domain boundaries, disease mutations, PTMs, disulfides, residue → PDB mapping |
 | `pubchem` | NCBI PubChem | Compound SMILES, 3D conformers for antechamber parametrization |
-| `chembl` | EMBL-EBI ChEMBL | Experimental Ki/IC50/EC50 — ΔG validation target |
+| `chembl` | EMBL-EBI ChEMBL | Experimental Ki/IC50/EC50, ADMET, mechanism — ΔG validation target |
 | `alphafold` | AlphaFold DB | Predicted structures + per-residue pLDDT when no crystal exists |
 | `stringdb` | STRING | PPI networks, pathway enrichment, off-target context |
-| `pubmed` | NCBI PubMed | Published protocols, simulation methods, literature context before planning |
+| `pubmed` | NCBI PubMed via Europe PMC | Published protocols, simulation methods, full-text Methods sections (Tier 1 source for dynamic force field selection — see [skills/amber-workflow.md](skills/amber-workflow.md) §Force fields) |
 
 ---
 
@@ -224,13 +278,16 @@ amber-md-agent/
 ├── scripts/
 │   ├── slurm_template.sh    # One-time cluster config — edit once, used everywhere
 │   └── cap_protein.py       # ACE/NME terminal capping utility
-├── mcp_servers/             # 7 live database integrations
+├── mcp_servers/             # 8 live MCP servers
+│   ├── amber_mcp_server.py  # FastMCP wrapper over md_agent.py (Amber operations)
 │   ├── pdb_server.py
 │   ├── uniprot_server.py
 │   ├── pubchem_server.py
 │   ├── chembl_server.py
 │   ├── alphafold_server.py
-│   └── stringdb_server.py
+│   ├── stringdb_server.py
+│   ├── pubmed_server.py
+│   └── mcp_protocol.py      # Shared MCP protocol helpers
 ├── references/
 │   └── amber_index.json     # Pre-built RAG index over Amber 24 manual (included)
 └── studies/                 # All simulation work

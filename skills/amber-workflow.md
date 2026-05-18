@@ -3,25 +3,27 @@
 Rigid 6-step protocol for ANY simulation or analysis request. Follow every step in order. No skipping.
 
 ## Step 1 — Check Environment
-```bash
-python md_agent.py check-env
+```
+check_environment()
 ```
 Know what tools are available before planning.
 
-**check-env reports Amber tools as missing on login node — expected.** Tools only available inside SLURM jobs after module load.
+**check_environment() reports Amber tools as missing on login node — expected.** Tools only available inside SLURM jobs after module load.
 Before submitting ANY SLURM job, confirm the module-load chain works by submitting a test job:
-```bash
-python md_agent.py write-slurm /tmp/test_modules.sh \
-  --commands "module load gnu12/12.2.0 && module load amber/24 && source /opt/shared/apps/amber/24/amber.sh && which tleap antechamber pmemd.cuda cpptraj" \
-  --job-name test_modules --work-dir /tmp --gpus 0 --walltime 00:05:00
-python md_agent.py sbatch /tmp/test_modules.sh
+```
+write_slurm(
+  output_path="/tmp/test_modules.sh",
+  commands="module load gnu12/12.2.0 && module load amber/24 && source /opt/shared/apps/amber/24/amber.sh && which tleap antechamber pmemd.cuda cpptraj",
+  job_name="test_modules", work_dir="/tmp", gpus=0, walltime="00:05:00"
+)
+submit_slurm(script_path="/tmp/test_modules.sh")
 ```
 If any tool is missing in the SLURM output → fix module lines in `scripts/slurm_template.sh` before any submission.
 
 ## Step 2 — RAG Query + Literature Search (MANDATORY)
 
 ### 2a. Amber manual (RAG)
-Run multiple queries using `rag-query`, `rag-toc`, `rag-section`, `rag-pages` (syntax in CLAUDE.md). Cover: protocol setup, parameter flags, analysis procedure.
+Run multiple queries using `rag_query()`, `rag_toc()`, `rag_section()`, `rag_pages()` (tool signatures in CLAUDE.md). Cover: protocol setup, parameter flags, analysis procedure.
 If RAG index unavailable → stop, tell user to ingest manual first.
 
 ### 2b. Literature search (Europe PMC via `mcp_servers/pubmed_server.py`)
@@ -68,12 +70,20 @@ python mcp_servers/pubmed_server.py search_protocol \
 Where `<technique>` is the matched keyword (e.g. `thermodynamic integration`, `umbrella sampling`, `MMPBSA`).
 
 Filters to apply to results:
-- Pub year ≥ (current_year − 7)
-- Citation count ≥ 5
-- Sort by citation count descending → take top 5
+Triage by relevance to the OBSERVABLE you need to compute, not by year or
+citation count alone. Method-establishing papers (often pre-2015) are gold —
+ff99SB-ILDN (2010, PMID:20408171), Joung-Cheatham ions (2008, PMID:18593145),
+OPC water (2014, PMID:24858934). Year cutoffs would drop these.
+
+For top relevant hits with PMC IDs, use `pubmed_server.get_full_text(pmcid)`
+to read Methods section (FF, water, ion model, mdin parameters) — abstracts
+omit protocol detail.
 
 If 0 hits → broaden query (drop "best practices", just `<technique> AMBER`).
-Still 0 hits → write `[no methodology precedent found]` in PLAN.md, proceed with skill defaults.
+Still 0 hits → write `[no methodology precedent found]` in PLAN.md, fall back
+to Amber 24 manual recommendations (Tier 2 in §Force fields protocol). NEVER
+fall back to hardcoded defaults — agent must always cite source (lit OR manual
+OR training-knowledge note).
 
 **Step 2c.2: Extract methodology keywords from top-5 abstracts.** Read each abstract, extract technique-specific jargon. Look for:
 - Algorithm/method names: `smoothstep`, `softcore`, `lambda scheduling`, `Bennett acceptance ratio`, `BAR`, `MBAR`, `WHAM`, `umbrella integration`
@@ -84,8 +94,8 @@ Still 0 hits → write `[no methodology precedent found]` in PLAN.md, proceed wi
 Output: deduplicated list of 5–15 keywords.
 
 **Step 2c.3: RAG manual cross-reference.** For each extracted keyword:
-```bash
-python md_agent.py rag-query "<keyword> <technique>"
+```
+rag_query(question="<keyword> <technique>")
 ```
 Read top 3 manual hits. Look for explicit Amber flag names: `gti_*`, `scalpha`, `scbeta`, `ifsc`, `icfe`, `noshakemask`, `barostat`, etc.
 
@@ -96,8 +106,8 @@ Read top 3 manual hits. Look for explicit Amber flag names: `gti_*`, `scalpha`, 
 **Step 2c.4: Write findings into PLAN.md.** See Step 4a (`## Method best practices` section template).
 
 ## Step 3 — Pre-flight (MANDATORY before any system build)
-```bash
-python md_agent.py preflight <raw.pdb>
+```
+preflight(pdb_file="<raw.pdb>")
 ```
 Fix ALL flagged issues before writing tLEaP scripts. Do not proceed on FAIL.
 
@@ -132,67 +142,191 @@ Date: <YYYY-MM-DD>
 - Special features: <truncated termini / disulfides / metals / cofactors / membrane / etc.>
 
 ## Force fields
-| Component | FF | Reason |
-|-----------|----|--------|
-| Protein | ff14SB | <reason> |
-| Ligand | GAFF2/BCC | <reason> |
-| Water | TIP3P | <reason> |
-| Ions | Joung-Cheatham | matches water model |
+
+**NO HARDCODED DEFAULTS.** Agent selects per study using 3-tier protocol below.
+Banned: "skill default", "standard choice", "<FF> by default", copying from
+prior study without re-justifying for THIS observable + this Amber version.
+
+### Selection protocol
+
+**Tier 1 — Lit precedent (from Step 2b/2c, primary source):**
+When triaging Step 2b/2c results, extract for each paper:
+- Protein FF used (ff14SB, ff19SB, a99SB-disp, ff15ipq, CHARMM36m, etc.)
+- Water model (TIP3P, TIP4P-Ew, OPC, SPC/Eb, TIP4P-D, etc.)
+- Ion model (Joung-Cheatham variant by water, Li-Merz, etc.)
+- Reported accuracy vs experiment for the OBSERVABLE you need (Tm, ΔG, J-couplings, NMR shifts)
+
+If a strong precedent exists for this observable + system class → candidate FF = that FF.
+
+**Tier 2 — Amber 24 manual recommendation (if Tier 1 empty/weak):**
+```
+rag_query("force field recommendation <study type>")
+rag_query("which protein force field <observable>")
+rag_query("water model <ff candidate> compatibility")
+```
+The manual gives explicit recommendations by use case (e.g. ff19SB for current
+general use, ff14SB for legacy compatibility, a99SB-disp for IDP+folded mixed).
+Candidate FF = manual recommendation for THIS use case.
+
+**Tier 3 — Training knowledge (if Tiers 1+2 both empty):**
+Pick from training knowledge. State explicitly in PLAN.md:
+"No lit precedent. No manual recommendation. Using <X> based on training
+knowledge: <one-sentence reason>." User overrides at approval gate.
+
+**ALWAYS — Manual validation (regardless of tier):**
+Every candidate must be confirmed to exist in Amber 24:
+```
+rag_query("leaprc.protein.<name>")        # FF available
+rag_query("leaprc.water.<name>")          # water available
+rag_query("ions <water model> Joung-Cheatham OR Li-Merz")   # ion-water compat
+```
+Reject hallucinated FFs (e.g. "ff20SB" — not real) or incompatible pairings
+(e.g. ff14SB-tuned ion params with OPC water without re-checking).
+
+### PLAN.md FF table (REQUIRED format)
+
+Every row cites BOTH lit precedent AND manual page. No row without both.
+
+| Component | Choice | Lit precedent (PMID) | Manual page | Reason for this study |
+|-----------|--------|---------------------|-------------|------------------------|
+| Protein   | <name> | <PMID or "Tier 2/3: <reason>"> | Amber24 §X p.Y | <one sentence> |
+| Water     | <name> | <PMID> | Amber24 §X p.Y | <one sentence> |
+| Ions      | <scheme> | <PMID> | Amber24 §X p.Y | <one sentence> |
+| Ligand    | <name> | <PMID or skill: amber-ligand.md> | Amber24 §X p.Y | <one sentence> |
 (Add rows for membrane/DNA/RNA/metal/cofactor as needed.)
 
-## Protonation states (at pH <X>)
+### Comparison-series studies
+If this study compares to a prior study (same system, different mutation/ligand),
+FF must MATCH the prior study's FF (FF effects cancel only in matched series).
+Cite the prior study and re-validate FF against current manual.
+
+## Protonation states
+- pH chosen for this study: <X> (justify: biological compartment / experimental
+  condition / lit precedent — NO default)
+- propka3 run on starting structure: yes/no, log path
+
 | Residue | State | Rationale |
 |---------|-------|-----------|
-| <e.g. ASP25 chain A> | ASH | <reason> |
-| <e.g. HIS69 both chains> | HIP | pH < pKa |
-(Default: standard at pH 7. Only list non-default residues.)
+| <residue ID> | <state code: ASH/GLH/HID/HIE/HIP/LYN/CYM> | <propka3 pKa + electrostatic context + buried/exposed status> |
 
-## Simulation protocol
-| Step | Setting | Time / cycles | Source |
-|------|---------|---------------|--------|
-| Min1 | restrained backbone, 10 kcal/mol·Å² | 5000 cyc | skill default |
-| Min2 | full | 10000 cyc | skill default |
-| Heat | NVT 0→300 K, Langevin γ=2, restrained 5 kcal/mol·Å² | 100 ps | skill default |
-| Burst density | NPT, barostat=1, taup=0.5, no restraint | until mean 0.95–1.05 g/cc + fluct < 0.02 | skill default |
-| Equil2 | NPT, barostat=1, taup=2.0, restrained 0.5 kcal/mol·Å² | <N> ps | <see Equil2 sizing> |
-| Production | NPT, MC barostat, no restraint | <N> ns | <user / default> |
+Agent justifies pH choice itself in the section header — do not assume pH 7.
+pH 7 (cytoplasmic) is one option; pH 5 (endosomal/lysosomal), pH 4 (gastric),
+pH 8 (blood plasma in some studies) all valid per biological context.
+Cite literature + propka3 calculation supporting BOTH the pH choice AND each
+non-standard residue protonation state.
 
-### Production length defaults (if user did not specify)
-| Study type | Default | Reason |
-|------------|---------|--------|
-| Stability check / smoke test | 10 ns | RMSD plateau |
-| Ligand bound, no FE | 50 ns | conformational sampling around pose |
-| Binding/MMPBSA/ΔG | 50 ns × 3 replicates | binding free energy needs replicates |
-| Flap dynamics / loop / allostery | 100–500 ns | rare-event regime |
-| TI / FEP / alchemical | 5 ns × N λ | per-window |
-| IDP / disordered | 500 ns – 1 µs | sampling regime |
+## Simulation Conditions (REQUIRED — surface explicitly so user can override)
 
-If user said a time → use it verbatim, mark source `user`.
-If user did NOT say → pick default above, mark source `DEFAULT` so user notices.
+| Condition | Value | Reason / source |
+|-----------|-------|-----------------|
+| Production temperature | <T> K | <biological context + lit PMID + manual page — NOT default 300 K> |
+| Pressure | <P> atm | <NPT 1 atm standard for solution; 0 atm for vacuum; high-P studies override> |
+| pH (links to §Protonation) | <X> | <see §Protonation rationale> |
+| Ionic strength | <neutralize-only OR ~150 mM NaCl> | <see §Box ions> |
 
-### Equil2 sizing (auto-pick)
-| Condition | Equil2 |
-|-----------|--------|
-| Small <50k atoms, burst converged ≤2 iter | 250 ps |
-| Medium 50–100k OR burst 2–5 iter | 500 ps |
-| Large >100k OR burst >5 iter (long cold) | 1 ns |
-| Membrane | 2 ns |
-Auto-extend if validate-step shows |temp − target| > 5 K after — no extra approval needed.
+Surface these top-level so the user sees them in the approval gate and can override
+(e.g. "actually use 310 K for fever conditions" or "use 277 K for low-T study").
+
+Possible temperatures (NOT defaults — agent picks + justifies):
+- 277 K  (4 °C, cold storage / cryo-preservation)
+- 290 K  (17 °C, room-temp X-ray crystallography)
+- 298 K  (25 °C, NMR standard)
+- 300 K  (27 °C, common MD simulation T)
+- 310 K  (37 °C, human physiological)
+- 313 K  (40 °C, fever / mild heat-shock)
+- 323 K  (50 °C, thermophile organisms)
+- 270–600 K range  (T-REMD ladder for folding/unfolding thermodynamics)
+
+If user prompt is silent on T, agent picks based on:
+1. What temperature is the system biologically active at? (e.g. human protein → 310 K, thermophile → 333+ K)
+2. What temperature was the experimental reference structure obtained at? (NMR ~298, X-ray ~290)
+3. What temperature was the precedent paper run at? (Step 2b extraction)
+Always cite the choice in PLAN.md and PROCESS_REPORT.md.
+
+## Simulation Protocol
+
+NO HARDCODED DEFAULTS. Agent fills every cell per study from:
+1. Amber 24 manual (RAG-cite section + page for each parameter)
+2. Lit precedent for THIS observable + system class (Step 2b PMID)
+3. Training knowledge with explicit "Tier 3" note if neither has guidance
+
+Examples of when agent MUST override conventional values:
+- Kinetics studies → lower γ_ln (e.g. 0.5 instead of 2.0) to preserve dynamics
+- Membrane systems → longer heating + Equil2, lipid21 thermostat handling
+- IDP → longer prod + larger box than folded protein
+- Free energy → matched timestep to softcore requirements (dt=0.001, ntc=1)
+- Cold/high-T studies → water model + thermostat appropriate for T range
+
+| Step | Setting | Time / cycles | Manual / lit source |
+|------|---------|---------------|---------------------|
+| Min1 | restrained backbone <K> kcal/mol·Å² | <N> cyc | <Amber24 §X p.Y> |
+| Min2 | full | <N> cyc | <Amber24 §X p.Y> |
+| Heat | NVT 0→<T> K, Langevin γ=<γ>, restrained <K> kcal/mol·Å² | <ps> | <Amber24 §X p.Y> |
+| Burst density | NPT, barostat=1, taup=0.5, no restraint | until mean <ρ>±<tol> g/cc + fluct < <f> | <Amber24 §X p.Y or skills/amber-bugs.md §burst> |
+| Equil2 | NPT, barostat=1, taup=<τ>, restrained <K> kcal/mol·Å² | <N> ps | <Amber24 §X p.Y + Equil2 sizing reasoning below> |
+| Production | NPT, MC barostat, no restraint | <N> ns | <user / lit PMID / manual + observable-timescale reasoning> |
+
+### Production length — NO DEFAULTS TABLE
+
+Agent picks per study from observable + lit precedent. Reasoning chain required:
+
+1. Identify OBSERVABLE timescale from lit (Step 2b extraction):
+   - What ns/µs range did precedent papers use for THIS observable?
+   - Did they report convergence (RMSD plateau, ΔG ± SEM stable)?
+2. Estimate system-specific timescale (folding ~µs, binding ~10-100 ns, IDP > µs)
+3. Apply user constraint (compute budget, walltime cap)
+4. State chosen length in PLAN.md with: lit precedent PMID + observable timescale + caveat if shorter than precedent
+5. If user gave a length verbatim → use it, mark source `user prompt`
+
+Banned: "skill default", "DEFAULT", arbitrary round numbers without justification.
+
+### Equil2 sizing — NO DEFAULTS TABLE
+
+Agent picks per study from system size + density convergence behavior + observable.
+Reasoning chain required:
+
+1. System size (from preflight): tiny (<15k), small (<50k), medium (<100k), large (>100k), membrane
+2. Burst loop iterations needed before convergence (from prior step)
+3. Density temperature recovery time (Langevin γ + system size determines)
+4. Observable sensitivity to starting conformation (drug binding needs longer equil than stability check)
+
+Write chosen Equil2 length in PLAN.md with reasoning, cite Amber24 manual section.
+Auto-extend allowed if validate_step shows |T − target| > 5 K after equilibration — log
+the auto-extend in PROCESS_REPORT.md.
 
 ## Box
-- Solvent: <model>, padding <N> Å
-- Ions: Joung-Cheatham, neutralize-only (default) OR <other>
+- Solvent model: <from PLAN §Force fields>
+- Padding: <N> Å — agent picks per study. Reasoning chain:
+  1. Minimum image cutoff (Amber default `cut=10` Å) + buffer for conformational
+     drift → at least cut + 2 Å padding for stable folded protein
+  2. Larger padding (12-15 Å) for IDP (extended states), allosteric loops, drug
+     ligand binding studies where pocket conformations sample large volume
+  3. Membrane systems: handled by packmol-memgen / CHARMM-GUI, NOT solvateBox
+- Ions: from PLAN §Force fields (water-matched, validated)
+  - Neutralization scheme: agent picks per study. Options:
+    - Neutralize-only (`addIons sys <ion> 0`): for free energy / binding studies
+      where added salt would alter the reference state
+    - Physiological salt (~150 mM NaCl via `addIons` count): for studies where
+      ionic strength matters (electrostatic interactions, IDPs, membrane potential)
+  State the choice + reasoning in PLAN.md, cite manual page or precedent paper.
 
 ## Analysis targets
-- <e.g. backbone RMSD, RMSF, flap_tip distance, active_site distance>
+- <observable-specific metrics from Step 2b lit + study objective, NO defaults>
+- Agent picks based on what the study aims to characterize. Examples (NOT defaults):
+  backbone RMSD, RMSF, secondary structure populations, distance/angle distributions,
+  fraction native contacts, Rg, end-to-end distance, ΔG decomposition, etc.
 
 ## Literature precedent (from Step 2b pubmed search)
 | Reference (PMID, DOI) | System | Sim length | FF | Key observable / value |
 |------------------------|--------|------------|-----|------------------------|
-| <Author et al. Year, PMID:..., DOI:...> | <closest match> | <ns> | <ff> | <e.g. flap_tip 5.3 Å closed> |
-(3–5 most relevant papers. If 0 found → "no published precedent — defaults are skill only".)
+| <Author et al. Year, PMID:..., DOI:...> | <closest match> | <ns> | <ff> | <observed value> |
+(3–5 most relevant papers. If 0 found → "no published precedent — agent decisions
+based on manual + training knowledge only, flagged for user review".)
 
-Defaults below align with / deviate from above — note any deviations and why.
+Every parameter choice in this PLAN MUST be cross-referenced to:
+- A lit row above (preferred), OR
+- An Amber24 manual page (RAG-cited), OR
+- An explicit "Tier 3: training knowledge — <reason>" note
 
 ## Method best practices (from Step 2c lit + RAG — MANDATORY if non-standard sim triggered)
 
@@ -279,21 +413,22 @@ After EVERY tool run:
 
 ### Validation Gates
 
-**After tLEaP:** run `validate-tleap` (flags in CLAUDE.md).
+**After tLEaP:** run `validate_tleap(log_file=...)`.
 FAIL → do not proceed. Fix tLEaP script and re-run.
 → append to PROCESS_REPORT.md: `| tLEaP | PASS/FAIL | - | Errors=N, prmtop size |`
 
-**After every MD step:** run `validate-step` (flags in CLAUDE.md).
+**After every MD step:** run `validate_step(mdout_file=..., expected_nstep=..., ...)`.
 FAIL → do not proceed to next step. Diagnose first.
 → append to PROCESS_REPORT.md: `| <step> | PASS/FAIL | <JOBID> | final E, density, NSTEP |`
 
 **After restrained equilibration — density check:**
 - Density 0.90–1.10 AND fluctuation < 0.02 g/cc → proceed to production
-- Density < 0.90 OR > 1.10 OR fluctuating > 0.02 → run `write-equil-density` (flags in CLAUDE.md), then submit via SLURM
+- Density < 0.90 OR > 1.10 OR fluctuating > 0.02 → run `write_equil_density_script(output_path, prmtop, rst_in, rst_out, mdin_path, work_dir, ...)`, then submit via SLURM
 ⚠ NEVER use sander for density convergence (50x slower than pmemd.cuda)
 ⚠ barostat=1 (Berendsen) + taup=0.5 for equil2
 ⚠ ntwr=500 so rst7 saved even on crash
 ⚠ barostat=1 for ALL equil runs — barostat=2 (MC) crashes when density far from target. Only switch to barostat=2 for production.
+⚠ restraintmask for backbone: use `@CA,C,N` — NOT `@CA,C,N,O`. TIP3P water oxygens are named `O`; including O in the mask restrains ~7000 water atoms and inflates restraint energy by orders of magnitude. Drop the O; carbonyl oxygens are rarely needed for structural restraint.
 
 ### Task Tracking
 Use TaskCreate at start — one task per major step. Update status immediately:
@@ -317,11 +452,11 @@ After every sbatch:
 ## Step 6 — Diagnose and Adapt
 On failure:
 1. Read mdout/log with `Read` tool
-2. `rag-query "<error or symptom>"` — covers Amber MD errors AND cpptraj (pages 671–865)
+2. `rag_query(question="<error or symptom>")` — covers Amber MD errors AND cpptraj (pages 671–865)
 3. `Read("skills/amber-bugs.md")` for known cluster issues
 4. Fix and retry
 
-**cpptraj errors specifically:** `rag-query "cpptraj <failing command> syntax"` — full command reference in Amber24.pdf. Do this before guessing syntax.
+**cpptraj errors specifically:** `rag_query(question="cpptraj <failing command> syntax")` — full command reference in Amber24.pdf. Do this before guessing syntax.
 
 ## Step 6b — Production Restart / Extend
 
@@ -335,7 +470,7 @@ nstlim=<additional_steps>
 pmemd.cuda -O -i extend.mdin -o extend.mdout -p system.prmtop \
   -c prod.rst7 -r extend.rst7 -x extend.nc
 ```
-Validate: `validate-step extend.mdout --expected-nstep <N> --target-temp 300`
+Validate: `validate_step(mdout_file="extend.mdout", expected_nstep=<N>, target_temp=300)`
 Concatenate trajectories for analysis: cpptraj `trajin prod.nc; trajin extend.nc`
 
 ## Step 7 — Finalize & Write Reports
@@ -369,16 +504,19 @@ atomicfluct @CA out analysis/rmsf.dat byres
 # 5. Energetics
 run
 ```
-```bash
+```
 # cpptraj via SLURM (never on login node)
-python md_agent.py write-slurm studies/<study>/analysis/run_cpptraj.sh \
-  --commands "cd /abs/path/studies/<study>/analysis && cpptraj -i analysis.in > cpptraj.log 2>&1" \
-  --job-name cpptraj_<study> --work-dir /abs/path/studies/<study>/analysis \
-  --gpus 0 --walltime 01:00:00
-python md_agent.py sbatch studies/<study>/analysis/run_cpptraj.sh
-# these run on login node (Python only, no Amber binary):
-python md_agent.py energy simulations/prod/prod.mdout
-python md_agent.py convergence analysis/rmsd.dat
+write_slurm(
+  output_path="studies/<study>/analysis/run_cpptraj.sh",
+  commands="cd /abs/path/studies/<study>/analysis && cpptraj -i analysis.in > cpptraj.log 2>&1",
+  job_name="cpptraj_<study>", work_dir="/abs/path/studies/<study>/analysis",
+  gpus=0, walltime="01:00:00"
+)
+submit_slurm(script_path="studies/<study>/analysis/run_cpptraj.sh")
+# parse energy/density/temp from mdout (runs on login node — Python only):
+read_mdout(mdout_file="simulations/prod/prod.mdout")
+# check RMSD plateau convergence:
+check_convergence(data_file="analysis/rmsd.dat")
 ```
 
 **Convergence check:** RMSD should plateau (no drift > 0.5 Å over last 50% of trajectory). If still drifting → simulation not converged → extend or report caveat in STUDY_REPORT.
@@ -390,14 +528,17 @@ Goal: a user can audit the entire run without re-reading mdouts or mdin files.
 
 ```
 ## Decisions Source (copied from approved PLAN.md)
-| Field        | Value                | Source       |
-|--------------|----------------------|--------------|
-| Protein FF   | ff14SB               | skill default|
-| Water        | TIP3P                | skill default|
-| Production   | 1 ns                 | user prompt  |
-| Equil2 time  | 500 ps               | DEFAULT      |
-| Protonation  | ASH-25(A), HIP-69    | agent (pH<pKa)|
-(copy every row from PLAN.md so PROCESS is self-contained)
+| Field        | Value                | Source                                   |
+|--------------|----------------------|------------------------------------------|
+| Protein FF   | <name from PLAN>     | <PMID + Amber24 §X p.Y> OR Tier 2/3 note |
+| Water        | <name from PLAN>     | <PMID + Amber24 §X p.Y>                  |
+| Ions         | <scheme from PLAN>   | <PMID + Amber24 §X p.Y>                  |
+| Production   | <length>             | user prompt OR <PMID precedent>          |
+| Equil2 time  | <length>             | <reason: size + burst convergence>       |
+| Protonation  | <non-default list>   | <propka / pKa + electrostatic context>   |
+(copy every row from PLAN.md verbatim. NO row may say "skill default" — every
+value must cite evidence: PMID, manual page, training-knowledge rationale, OR
+user prompt. PROCESS_REPORT is the auditable record.)
 
 ## Software / Reproducibility
 - Amber: amber/24 (`module load amber/24` + `source /opt/shared/apps/amber/24/amber.sh`)
@@ -415,7 +556,7 @@ Goal: a user can audit the entire run without re-reading mdouts or mdin files.
 (Parse "ns/day" from mdout footer. Wall from SLURM job runtime — `squeue` while running, or end-of-mdout timestamps.)
 
 ## Energy / Temperature / Density Averages
-Parse `python md_agent.py energy <prod.mdout>` output, paste here:
+Parse `read_mdout(mdout_file="<prod.mdout>")` output, paste here:
 | Property    | Mean    | Std    | Range            |
 |-------------|---------|--------|------------------|
 | Etot        | <X>     | <X>    | <min, max>       |
@@ -435,7 +576,7 @@ Parse `python md_agent.py energy <prod.mdout>` output, paste here:
 |---------------------|-----------|-----------|-------------|
 | Backbone RMSD       | 0.25 Å    | 0.5 Å     | converged   |
 | <other observables> |           |           |             |
-(One row per `python md_agent.py convergence` call run during Step 7.)
+(One row per `check_convergence()` call run during Step 7.)
 
 ## Re-runs / Auto-fixes
 List every restart, density burst, or auto-extend executed without re-asking user:
@@ -498,15 +639,18 @@ explicit reasoning (pKa from manual / literature / electrostatic context).
 | Residue | State | pKa context | Rationale |
 |---------|-------|-------------|-----------|
 
-## 4. Methods (mdin settings — quote actual values used)
+## 4. Methods (mdin settings — quote ACTUAL values used in this study)
+This table is filled with the actual values from the executed mdin files —
+NOT a template. Read each mdin, copy verbatim. NO hardcoded examples below.
+
 | Step | Ensemble | Thermostat | Barostat | dt | cut | SHAKE | Restraints | Length |
 |------|----------|------------|----------|----|----|-------|------------|--------|
-| Min1 | — | — | — | — | 10 Å | — | 10 kcal/mol·Å² on solute | 5000 cyc |
-| Min2 | — | — | — | — | 10 Å | — | none | 10000 cyc |
-| Heat | NVT | Langevin γ=2 | — | 2 fs | 10 Å | H | 5 kcal/mol·Å² | 100 ps, 0→300 K |
-| Burst | NPT | Langevin γ=1 | Berendsen taup=0.5 | 2 fs | 10 Å | H | none | 10 ps × N |
-| Equil2 | NPT | Langevin γ=2 | Berendsen taup=2.0 | 2 fs | 10 Å | H | 0.5 kcal/mol·Å² | <N> ps |
-| Prod | NPT | Langevin γ=2 | MC taup=5.0 | 2 fs | 10 Å | H | none | <N> ns |
+| Min1 | — | — | — | — | <Å> | — | <K> kcal/mol·Å² <mask> | <cyc> |
+| Min2 | — | — | — | — | <Å> | — | <K> kcal/mol·Å² <mask> or none | <cyc> |
+| Heat | <NVT/NPT> | <type γ=X> | <type taup=X or —> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² | <ps>, <T_init>→<T_final> K |
+| Burst | <NVT/NPT> | <type γ=X> | <type taup=X> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² or none | <N> × <ps> |
+| Equil2 | <NVT/NPT> | <type γ=X> | <type taup=X> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² | <ps> |
+| Prod | <NVT/NPT> | <type γ=X> | <type taup=X or —> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² or none | <ns> |
 
 ## 5. Results
 Quantitative — every value here cites a file path. No prose-only claims.

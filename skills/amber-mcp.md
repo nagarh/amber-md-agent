@@ -59,8 +59,8 @@ results = search_pdb(query, organism, resolution_max=3.0)
 
 selected = None
 for pdb_id in results:
-    python md_agent.py fetch pdb_id        # download
-    result = python md_agent.py preflight <pdb_id>.pdb  # check breaks
+    python scripts/md_agent.py fetch pdb_id        # download
+    result = python scripts/md_agent.py preflight <pdb_id>.pdb  # check breaks
     if "chain break" not in preflight result:
         report = get_validation_report(pdb_id)
         if report["resolution"] < 2.5 and report["clashscore"] < 20 and report["ramachandran_outliers"] < 2:
@@ -81,7 +81,7 @@ if all_have_breaks:
 
 ## Skip when
 
-- User gave PDB ID → just `python md_agent.py fetch <PDB_ID>`, skip search
+- User gave PDB ID → just `python scripts/md_agent.py fetch <PDB_ID>`, skip search
 - Crystal structure exists at good resolution → skip AlphaFold entirely
 - Single-protein binding study → skip stringdb entirely
 - Not planning FEP series → skip `pubchem.get_similar_compounds`

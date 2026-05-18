@@ -15,8 +15,23 @@ studies/HSA_ibuprofen/
 studies/HSP90_radicicol/
 studies/neuraminidase_oseltamivir/
 
-# Large binary trajectory files
+# Trajectory files only (large binary, regeneratable from inputs)
 **/*.nc
+# Transient progress files (rewritten constantly during runs)
+**/*.mdinfo
+# Other transient
+**/fort.*
+**/cpptraj_*.log
+# SLURM stdout/stderr (often empty or redundant with mdout)
+**/logs/*.out
+**/logs/*.err
+# REMD exchange log: raw .log can exceed GitHub 100 MB hard limit (REMD with
+# numexchg=100000 × 16 replicas → ~120 MB). Commit the gzipped version instead.
+**/remd.log
+!**/remd.log.gz
+#
+# NOTE: .mdout, .rst7, .log.gz, leap.log are KEPT in git — they document
+# the run reproducibly. Only .nc trajectories (GB-scale) and raw remd.log are excluded.
 
 # Python
 **/__pycache__/

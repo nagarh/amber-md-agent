@@ -205,6 +205,15 @@ restraintmask='@CA,C,N,O&!:WAT',  # WRONG — & confuses Fortran parser
 ```
 Use `!:RESNAME` (not operator) instead of `&!:RESNAME` (and-not operator) when excluding solvent.
 
+### `@CA,C,N,O` backbone mask restrains TIP3P water oxygens
+**Symptom**: Initial RESTRAINT energy ~50,000–80,000 kcal/mol instead of expected ~10–100 kcal/mol. Simulation completes but restraint forces are meaningless — effectively restraining ~7,000 water oxygen atoms.
+**Cause**: TIP3P water oxygen atom name is `O`. The mask `@CA,C,N,O` selects ALL atoms named O in the system, including every water oxygen.
+```
+restraintmask="@CA,C,N,O",   # WRONG — catches ~7000 TIP3P water oxygens
+restraintmask="@CA,C,N",      # correct — protein backbone only, no water
+```
+**Rule**: Always use `@CA,C,N` for backbone restraints. Carbonyl oxygens (`O`) add minimal structural stability; omitting them is standard practice and avoids this bug.
+
 ---
 
 ## Density / Box Blown Up
@@ -267,7 +276,7 @@ echo "" >> studies/<study>/simulations/equil_density_burst.mdin
 tail -3 studies/<study>/simulations/equil_density_burst.mdin | cat -A   # must end with blank $
 ```
 
-**Step 3** — submit: `python md_agent.py sbatch studies/<study>/logs/equil_density.sh`
+**Step 3** — submit: `python scripts/md_agent.py sbatch studies/<study>/logs/equil_density.sh`
 
 Each burst = 10 ps (5000 steps) at `barostat=1, taup=0.5`. Restarts until BOTH:
 - `|mean(last 5 frames) - target_density| <= density_tolerance` (default target=1.00, tol=0.05 → range 0.95–1.05)
@@ -279,17 +288,18 @@ Override with `--target-density`, `--density-tolerance`, `--density-fluct-max`. 
 
 `write-equil-density` fires production immediately after density threshold. The burst restarts compress the box but do NOT restore temperature — system enters production cold (e.g. 240 K instead of 300 K), skewing all MM-GBSA energetics.
 
-After burst loop completes, always submit a 500 ps re-equilibration before production:
+After burst loop completes, always submit a re-equilibration before production.
+Length is per-study (see amber-workflow.md §Equil2 sizing — no default):
 
 ```bash
-# equil2.mdin: same as equil.mdin but irest=1, ntx=5, nstlim=250000 (500 ps)
+# equil2.mdin: same as equil.mdin but irest=1, ntx=5, nstlim=<from PLAN.md>
 # input: equil.rst7 (burst loop output)
 pmemd.cuda -O -i equil2.mdin -o equil2.mdout -p system.prmtop \
   -c equil/equil.rst7 -r equil2.rst7 -x equil2.nc
 
 # Validate before production
-python md_agent.py validate-step equil2.mdout --target-temp 300 --min-density 0.90
-# temperature must be ≥ 295 K before proceeding
+python scripts/md_agent.py validate-step equil2.mdout --target-temp <T_from_PLAN> --min-density <ρ_min_from_PLAN>
+# temperature must be within <tol> K of target before proceeding
 ```
 
 Only after validate-step PASS on temperature → submit production with `-c equil2.rst7`.

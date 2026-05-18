@@ -1,0 +1,43 @@
+# Trp-cage REMD analysis — strip waters, demux by temperature, per-T RMSD/Q/Rg
+
+parm /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/system/system.prmtop
+reference /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_1ns_stress/raw_pdbs/1L2Y_model1.pdb [REF1L2Y]
+
+# Load all 16 replica trajectories (slot-ordered)
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_00.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_01.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_02.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_03.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_04.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_05.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_06.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_07.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_08.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_09.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_10.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_11.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_12.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_13.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_14.nc remdtraj remdtrajtemp 270.0
+trajin /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_15.nc remdtraj remdtrajtemp 270.0
+
+# strip waters/ions
+strip :WAT,Na+,Cl-
+autoimage
+
+# Use ensemble mode — process all 16 temp-sorted streams simultaneously
+ensemble /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/simulations/remd_prod/remd_00.nc remdtraj remdtrajtemp 270.0
+
+# RMSD vs 1L2Y model 1 (backbone)
+rms RMSD ref [REF1L2Y] @CA,C,N out /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/analysis/by_temp/rmsd.dat
+
+# Radius of gyration
+radgyr Rg @CA,C,N,O,CB out /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/analysis/by_temp/rg.dat
+
+# Native contacts (heavy atoms, 7 Å cutoff, vs reference)
+nativecontacts Q :1-20&!@H= reference ref [REF1L2Y] distance 7.0 out /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/analysis/by_temp/q.dat
+
+# End-to-end distance (helps assess extended states)
+distance E2E :1@CA :20@CA out /home/hn533621/Portfolio/amber-md-agent/studies/trpcage_remd_folding/analysis/by_temp/e2e.dat
+
+run

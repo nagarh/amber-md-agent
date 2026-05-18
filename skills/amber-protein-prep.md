@@ -136,20 +136,30 @@ write_tleap(output_path="tleap.in", commands="cmd1; cmd2; ...")
 os.path.abspath(path)   # use when writing tLEaP scripts programmatically
 ```
 
-Typical tLEaP sequence:
+Typical tLEaP sequence — **FF/water/ion names from PLAN.md §Force fields, NOT hardcoded here**:
 ```
-source leaprc.protein.ff14SB
-source leaprc.water.tip3p
+# Replace <PROTEIN_FF>, <WATER>, <WATER_UPPER>BOX, <ION>, <PADDING> with values
+# selected in PLAN.md Step 4 §Force fields (per Tier 1/2/3 protocol in amber-workflow.md).
+# Do not paste this block with literal ff14SB/tip3p — agent must substitute per study.
+
+source leaprc.protein.<PROTEIN_FF>            # e.g. ff19SB, ff14SB, a99SB-disp
+source leaprc.water.<WATER>                   # e.g. opc, tip3p, tip4pew, spceb
 loadAmberParams /abs/path/to/ligand.frcmod
 MOL = loadMol2 /abs/path/to/ligand.mol2
 prot = loadPdb /abs/path/to/protein_capped.pdb
 sys = combine {prot MOL}
-addIons sys Na+ 0
-addIons sys Cl- 0
-solvateBox sys TIP3PBOX 12.0
+addIons sys <CATION> 0                        # e.g. Na+, K+
+addIons sys <ANION> 0                         # e.g. Cl-
+solvateBox sys <WATER_UPPER>BOX <PADDING>     # e.g. OPCBOX 12.0 (water keyword from PLAN)
 saveAmberParm sys /abs/path/to/system.prmtop /abs/path/to/system.inpcrd
 quit
 ```
+
+**Common mismatch trap:** `leaprc.water.<X>` loads BOTH the water model AND the
+Joung-Cheatham ion params tuned for that water. If you `source leaprc.water.opc`
+the ions will be JC-OPC variants, not JC-TIP3P. Mixing leaprc.water.tip3p with
+manually-loaded opc params → wrong ion behavior. Always use the leaprc that
+matches your PLAN.md water choice.
 
 ### Ion concentration
 Default — always use neutralize-only:

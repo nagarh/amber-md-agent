@@ -8,10 +8,11 @@ You operate on an HPC cluster via Claude Code CLI. **STRICT RULE: NEVER run any 
 
 **Python environment:** Always use `/home/hn533621/.conda/envs/amber_development/bin/python` for all Python scripts (rdkit, parmed, MDAnalysis, propka3, numpy, scipy, matplotlib all installed there). Never use the default `python` or `python3` on login node for agent scripts.
 
-**Three resources you reason from:**
-- **Toolkit** (`scripts/md_agent.py`) — low-level functions for every Amber operation
+**Two resources you reason from:**
 - **RAG** (Amber manual) — primary and authoritative knowledge source
 - **Skills** (`skills/`) — load on demand for specific workflows
+
+All Amber operations via MCP tools (auto-discovered from `.mcp.json` — no need to enumerate them here).
 
 **Before starting any task:**
 - Check `studies/` for an existing study on the same system — avoid duplicate work
@@ -22,6 +23,25 @@ You operate on an HPC cluster via Claude Code CLI. **STRICT RULE: NEVER run any 
 
 **Before writing any mdin, tLEaP script, or workflow step — query the manual.**
 If RAG index unavailable → stop, tell user to ingest manual first.
+
+## Core Rule: No Hardcoded Defaults
+
+**No "skill default" anywhere.** Every parameter choice in PLAN.md (FF, water,
+ion model, box padding, sim length, restraint strength, etc.) must be justified
+per study using:
+
+1. **Tier 1 — Lit precedent** from Step 2b/2c pubmed search (extract FF/water/ions
+   actually used in closest precedent papers for THIS observable + system class).
+2. **Tier 2 — Amber 24 manual recommendation** via `rag_query` if Tier 1 empty.
+3. **Tier 3 — Training knowledge** with explicit note "no lit, no manual rec,
+   using <X> because <reason>" if both empty.
+4. **Always — Manual validation** via `rag_query("leaprc.protein.<name>")` etc.
+   to confirm the choice exists in Amber 24 (catches hallucinated FFs like ff20SB).
+
+Banned phrases in PLAN.md: `skill default`, `standard choice`, `<FF> by default`,
+copying parameters from a prior study without re-justifying for THIS observable.
+
+See `skills/amber-workflow.md` §Force fields for full protocol.
 
 
 ## Skills (load on demand)
@@ -49,36 +69,6 @@ Read the relevant skill file and follow it exactly when triggered.
 - Ligand parametrization / antechamber → `Read("skills/amber-ligand.md")`
 - Any error or unexpected output → `Read("skills/amber-bugs.md")`
 - Any structure fetch or ΔG result → `Read("skills/amber-mcp.md")`
-
----
-
-## Toolkit Reference
-
-All operations via MCP tools (registered in `.mcp.json`). Claude Code calls tools directly — no `python md_agent.py` needed.
-
-### Environment
-Tool: `check_environment()`
-
-### PDB
-Tools: `fetch_pdb(pdb_id, output_dir)`, `inspect_pdb(pdb_file)`, `clean_pdb(pdb_file, output_file, keep_waters, keep_hydrogens)`, `preflight(pdb_file, check_ligands)`
-
-### File Writers
-Tools: `write_mdin(output_path, namelist_params, title, extra_sections)`, `write_tleap(output_path, commands)`, `write_cpptraj(output_path, commands)`, `write_groupfile(output_path, entries)`, `write_file(output_path, content)`, `write_slurm(output_path, commands, job_name, work_dir, gpus, walltime)`, `write_slurm_array(output_path, command_template, array_range, job_name, work_dir, gpus, walltime)`, `write_equil_density_script(output_path, prmtop, rst_in, rst_out, mdin_path, work_dir, ...)`
-
-### SLURM
-Tools: `submit_slurm(script_path, cwd)`, `check_slurm_job(job_id)`, `cancel_slurm_job(job_id)`, `slurm_history(days)`
-
-### Validation Gates
-Tools: `validate_step(mdout_file, expected_nstep, min_density, max_density, check_rst7, target_temp, temp_tolerance)`, `validate_tleap(log_file)`, `check_convergence(data_file, column, abs_threshold)`
-
-### RAG
-Tools: `rag_ingest(manual_path, append)`, `rag_query(question, top_k, index_path)`, `rag_toc(index_path)`, `rag_section(section_name, index_path)`, `rag_page(page_num, index_path)`, `rag_pages(start, end, index_path)`
-
-### Analysis
-Tools: `read_mdout(mdout_file, last_n)`, `read_file_tail(file_path, n_chars)`, `read_file_head(file_path, n_chars)`, `list_files(directory, pattern)`, `plot_timeseries(data_file, output_png, xlabel, ylabel)`, `plot_bar(data_file, output_png, xlabel, ylabel)`
-
-### Direct Exec (login-node, tiny jobs only)
-Tools: `run_tleap(input_file, cwd)`, `run_cpptraj(input_file, cwd)`
 
 ---
 
@@ -115,7 +105,7 @@ amber-md-agent/
 │   ├── prepare_ligand.py    ← legacy ligand prep (use amber-ligand.md instead)
 │   └── slurm_template.sh    ← cluster config — edit once for your cluster
 ├── mcp_servers/
-│   ├── amber_mcp_server.py  ← FastMCP server: 35 tools wrapping md_agent.py
+│   ├── amber_mcp_server.py  ← FastMCP server wrapping scripts/md_agent.py
 │   ├── pdb_server.py        ← RCSB PDB search + structure info
 │   ├── pubchem_server.py    ← compound search + 3D conformers
 │   ├── uniprot_server.py    ← protein info, domains, variants

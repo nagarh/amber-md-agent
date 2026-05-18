@@ -70,12 +70,20 @@ python mcp_servers/pubmed_server.py search_protocol \
 Where `<technique>` is the matched keyword (e.g. `thermodynamic integration`, `umbrella sampling`, `MMPBSA`).
 
 Filters to apply to results:
-- Pub year ≥ (current_year − 7)
-- Citation count ≥ 5
-- Sort by citation count descending → take top 5
+Triage by relevance to the OBSERVABLE you need to compute, not by year or
+citation count alone. Method-establishing papers (often pre-2015) are gold —
+ff99SB-ILDN (2010, PMID:20408171), Joung-Cheatham ions (2008, PMID:18593145),
+OPC water (2014, PMID:24858934). Year cutoffs would drop these.
+
+For top relevant hits with PMC IDs, use `pubmed_server.get_full_text(pmcid)`
+to read Methods section (FF, water, ion model, mdin parameters) — abstracts
+omit protocol detail.
 
 If 0 hits → broaden query (drop "best practices", just `<technique> AMBER`).
-Still 0 hits → write `[no methodology precedent found]` in PLAN.md, proceed with skill defaults.
+Still 0 hits → write `[no methodology precedent found]` in PLAN.md, fall back
+to Amber 24 manual recommendations (Tier 2 in §Force fields protocol). NEVER
+fall back to hardcoded defaults — agent must always cite source (lit OR manual
+OR training-knowledge note).
 
 **Step 2c.2: Extract methodology keywords from top-5 abstracts.** Read each abstract, extract technique-specific jargon. Look for:
 - Algorithm/method names: `smoothstep`, `softcore`, `lambda scheduling`, `Bennett acceptance ratio`, `BAR`, `MBAR`, `WHAM`, `umbrella integration`
@@ -134,13 +142,63 @@ Date: <YYYY-MM-DD>
 - Special features: <truncated termini / disulfides / metals / cofactors / membrane / etc.>
 
 ## Force fields
-| Component | FF | Reason |
-|-----------|----|--------|
-| Protein | ff14SB | <reason> |
-| Ligand | GAFF2/BCC | <reason> |
-| Water | TIP3P | <reason> |
-| Ions | Joung-Cheatham | matches water model |
+
+**NO HARDCODED DEFAULTS.** Agent selects per study using 3-tier protocol below.
+Banned: "skill default", "standard choice", "<FF> by default", copying from
+prior study without re-justifying for THIS observable + this Amber version.
+
+### Selection protocol
+
+**Tier 1 — Lit precedent (from Step 2b/2c, primary source):**
+When triaging Step 2b/2c results, extract for each paper:
+- Protein FF used (ff14SB, ff19SB, a99SB-disp, ff15ipq, CHARMM36m, etc.)
+- Water model (TIP3P, TIP4P-Ew, OPC, SPC/Eb, TIP4P-D, etc.)
+- Ion model (Joung-Cheatham variant by water, Li-Merz, etc.)
+- Reported accuracy vs experiment for the OBSERVABLE you need (Tm, ΔG, J-couplings, NMR shifts)
+
+If a strong precedent exists for this observable + system class → candidate FF = that FF.
+
+**Tier 2 — Amber 24 manual recommendation (if Tier 1 empty/weak):**
+```
+rag_query("force field recommendation <study type>")
+rag_query("which protein force field <observable>")
+rag_query("water model <ff candidate> compatibility")
+```
+The manual gives explicit recommendations by use case (e.g. ff19SB for current
+general use, ff14SB for legacy compatibility, a99SB-disp for IDP+folded mixed).
+Candidate FF = manual recommendation for THIS use case.
+
+**Tier 3 — Training knowledge (if Tiers 1+2 both empty):**
+Pick from training knowledge. State explicitly in PLAN.md:
+"No lit precedent. No manual recommendation. Using <X> based on training
+knowledge: <one-sentence reason>." User overrides at approval gate.
+
+**ALWAYS — Manual validation (regardless of tier):**
+Every candidate must be confirmed to exist in Amber 24:
+```
+rag_query("leaprc.protein.<name>")        # FF available
+rag_query("leaprc.water.<name>")          # water available
+rag_query("ions <water model> Joung-Cheatham OR Li-Merz")   # ion-water compat
+```
+Reject hallucinated FFs (e.g. "ff20SB" — not real) or incompatible pairings
+(e.g. ff14SB-tuned ion params with OPC water without re-checking).
+
+### PLAN.md FF table (REQUIRED format)
+
+Every row cites BOTH lit precedent AND manual page. No row without both.
+
+| Component | Choice | Lit precedent (PMID) | Manual page | Reason for this study |
+|-----------|--------|---------------------|-------------|------------------------|
+| Protein   | <name> | <PMID or "Tier 2/3: <reason>"> | Amber24 §X p.Y | <one sentence> |
+| Water     | <name> | <PMID> | Amber24 §X p.Y | <one sentence> |
+| Ions      | <scheme> | <PMID> | Amber24 §X p.Y | <one sentence> |
+| Ligand    | <name> | <PMID or skill: amber-ligand.md> | Amber24 §X p.Y | <one sentence> |
 (Add rows for membrane/DNA/RNA/metal/cofactor as needed.)
+
+### Comparison-series studies
+If this study compares to a prior study (same system, different mutation/ligand),
+FF must MATCH the prior study's FF (FF effects cancel only in matched series).
+Cite the prior study and re-validate FF against current manual.
 
 ## Protonation states (at pH <X>)
 | Residue | State | Rationale |
@@ -150,12 +208,19 @@ Date: <YYYY-MM-DD>
 (Default: standard at pH 7. Only list non-default residues.)
 
 ## Simulation protocol
-| Step | Setting | Time / cycles | Source |
-|------|---------|---------------|--------|
-| Min1 | restrained backbone, 10 kcal/mol·Å² | 5000 cyc | skill default |
-| Min2 | full | 10000 cyc | skill default |
-| Heat | NVT 0→300 K, Langevin γ=2, restrained 5 kcal/mol·Å² | 100 ps | skill default |
-| Burst density | NPT, barostat=1, taup=0.5, no restraint | until mean 0.95–1.05 g/cc + fluct < 0.02 | skill default |
+
+Equilibration mechanics (Min, Heat, Burst, Equil2) are well-established standard
+practice — but agent must still cite Amber 24 manual section for each row (no
+"skill default" allowed). Agent may use the starting values below if manual
+confirms them; agent must OVERRIDE if observable demands different (e.g. lower
+γ_ln for kinetics studies, longer heat for membrane systems).
+
+| Step | Setting | Time / cycles | Manual / lit source |
+|------|---------|---------------|---------------------|
+| Min1 | restrained backbone <K> kcal/mol·Å² | <N> cyc | <Amber24 §X p.Y> |
+| Min2 | full | <N> cyc | <Amber24 §X p.Y> |
+| Heat | NVT 0→<T> K, Langevin γ=<γ>, restrained <K> kcal/mol·Å² | <ps> | <Amber24 §X p.Y> |
+| Burst density | NPT, barostat=1, taup=0.5, no restraint | until mean <ρ>±<tol> g/cc + fluct < <f> | <Amber24 §X p.Y or skills/amber-bugs.md §burst> |
 | Equil2 | NPT, barostat=1, taup=2.0, restrained 0.5 kcal/mol·Å² | <N> ps | <see Equil2 sizing> |
 | Production | NPT, MC barostat, no restraint | <N> ns | <user / default> |
 
@@ -396,14 +461,17 @@ Goal: a user can audit the entire run without re-reading mdouts or mdin files.
 
 ```
 ## Decisions Source (copied from approved PLAN.md)
-| Field        | Value                | Source       |
-|--------------|----------------------|--------------|
-| Protein FF   | ff14SB               | skill default|
-| Water        | TIP3P                | skill default|
-| Production   | 1 ns                 | user prompt  |
-| Equil2 time  | 500 ps               | DEFAULT      |
-| Protonation  | ASH-25(A), HIP-69    | agent (pH<pKa)|
-(copy every row from PLAN.md so PROCESS is self-contained)
+| Field        | Value                | Source                                   |
+|--------------|----------------------|------------------------------------------|
+| Protein FF   | <name from PLAN>     | <PMID + Amber24 §X p.Y> OR Tier 2/3 note |
+| Water        | <name from PLAN>     | <PMID + Amber24 §X p.Y>                  |
+| Ions         | <scheme from PLAN>   | <PMID + Amber24 §X p.Y>                  |
+| Production   | <length>             | user prompt OR <PMID precedent>          |
+| Equil2 time  | <length>             | <reason: size + burst convergence>       |
+| Protonation  | <non-default list>   | <propka / pKa + electrostatic context>   |
+(copy every row from PLAN.md verbatim. NO row may say "skill default" — every
+value must cite evidence: PMID, manual page, training-knowledge rationale, OR
+user prompt. PROCESS_REPORT is the auditable record.)
 
 ## Software / Reproducibility
 - Amber: amber/24 (`module load amber/24` + `source /opt/shared/apps/amber/24/amber.sh`)

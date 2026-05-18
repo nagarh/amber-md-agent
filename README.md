@@ -155,24 +155,69 @@ git clone https://github.com/nagarh/amber-md-agent
 cd amber-md-agent
 ```
 
-**2. Configure your cluster** — edit `scripts/slurm_template.sh` once:
+**2. Install Python deps** — recommended via conda:
+```bash
+conda create -n amber_development python=3.11 -y
+conda install -n amber_development -c conda-forge \
+    numpy scipy matplotlib rdkit parmed mdanalysis propka biopython pdfminer.six -y
+# (FastMCP if pip required for MCP servers: pip install fastmcp)
+```
+Use the resulting interpreter path everywhere (e.g. `~/.conda/envs/amber_development/bin/python`).
+
+**3. Register the 8 MCP servers** — edit `.mcp.json` (Claude Code reads this at startup).
+
+The shipped `.mcp.json` has absolute paths to the author's environment. Replace
+them with YOUR Python interpreter + YOUR cloned repo path:
+
+```bash
+# One-liner: rewrite .mcp.json for the current user
+PY=$(which python)            # e.g. /home/<you>/.conda/envs/amber_development/bin/python
+REPO=$(pwd)                   # the cloned amber-md-agent directory
+python -c "
+import json, sys
+cfg = json.load(open('.mcp.json'))
+for name, srv in cfg['mcpServers'].items():
+    srv['command'] = '${PY}'
+    srv['args']    = [a.replace('/home/hn533621/Portfolio/amber-md-agent/', '') if a.startswith('/home/') else a for a in srv['args']]
+    srv['cwd']     = '${REPO}'
+json.dump(cfg, open('.mcp.json','w'), indent=2)
+print('.mcp.json rewritten for', '${REPO}')
+"
+```
+
+Or manually edit each entry's `command` (Python path), `args` (relative path
+from `cwd`), and `cwd` (clone location). Example for one entry:
+```json
+"amber": {
+  "command": "/path/to/your/python",
+  "args": ["mcp_servers/amber_mcp_server.py"],
+  "cwd": "/path/to/cloned/amber-md-agent"
+}
+```
+All 8 servers (`amber`, `pdb`, `uniprot`, `pubchem`, `chembl`, `alphafold`, `stringdb`, `pubmed`) follow the same pattern.
+
+**4. Configure your cluster** — edit `scripts/slurm_template.sh` once:
 ```bash
 #SBATCH --partition=gpu          # your partition
 #SBATCH --gres=gpu:a100:1        # your GPU type
 module load amber/24             # your Amber module
 ```
 
-**3. Verify**
+**5. Verify**
 ```bash
-python md_agent.py check-env
+python scripts/md_agent.py check-env       # tools + RAG index check
+claude mcp list                             # confirms all 8 servers register
 ```
 
-**4. Start**
+**6. Start**
 ```bash
 claude        # opens Claude Code — MCP servers auto-connect via .mcp.json
 ```
 
 > The Amber manual RAG index (`references/amber_index.json`) is pre-built and included. No manual setup required.
+>
+> If `claude mcp list` shows red/missing servers, check that `command` resolves
+> to a Python with FastMCP + required deps installed, and that `cwd` exists.
 
 ---
 

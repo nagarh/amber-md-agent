@@ -200,20 +200,34 @@ If this study compares to a prior study (same system, different mutation/ligand)
 FF must MATCH the prior study's FF (FF effects cancel only in matched series).
 Cite the prior study and re-validate FF against current manual.
 
-## Protonation states (at pH <X>)
+## Protonation states
+- pH chosen for this study: <X> (justify: biological compartment / experimental
+  condition / lit precedent — NO default)
+- propka3 run on starting structure: yes/no, log path
+
 | Residue | State | Rationale |
 |---------|-------|-----------|
-| <e.g. ASP25 chain A> | ASH | <reason> |
-| <e.g. HIS69 both chains> | HIP | pH < pKa |
-(Default: standard at pH 7. Only list non-default residues.)
+| <residue ID> | <state code: ASH/GLH/HID/HIE/HIP/LYN/CYM> | <propka3 pKa + electrostatic context + buried/exposed status> |
+
+Agent justifies pH choice itself in the section header — do not assume pH 7.
+pH 7 (cytoplasmic) is one option; pH 5 (endosomal/lysosomal), pH 4 (gastric),
+pH 8 (blood plasma in some studies) all valid per biological context.
+Cite literature + propka3 calculation supporting BOTH the pH choice AND each
+non-standard residue protonation state.
 
 ## Simulation protocol
 
-Equilibration mechanics (Min, Heat, Burst, Equil2) are well-established standard
-practice — but agent must still cite Amber 24 manual section for each row (no
-"skill default" allowed). Agent may use the starting values below if manual
-confirms them; agent must OVERRIDE if observable demands different (e.g. lower
-γ_ln for kinetics studies, longer heat for membrane systems).
+NO HARDCODED DEFAULTS. Agent fills every cell per study from:
+1. Amber 24 manual (RAG-cite section + page for each parameter)
+2. Lit precedent for THIS observable + system class (Step 2b PMID)
+3. Training knowledge with explicit "Tier 3" note if neither has guidance
+
+Examples of when agent MUST override conventional values:
+- Kinetics studies → lower γ_ln (e.g. 0.5 instead of 2.0) to preserve dynamics
+- Membrane systems → longer heating + Equil2, lipid21 thermostat handling
+- IDP → longer prod + larger box than folded protein
+- Free energy → matched timestep to softcore requirements (dt=0.001, ntc=1)
+- Cold/high-T studies → water model + thermostat appropriate for T range
 
 | Step | Setting | Time / cycles | Manual / lit source |
 |------|---------|---------------|---------------------|
@@ -221,45 +235,70 @@ confirms them; agent must OVERRIDE if observable demands different (e.g. lower
 | Min2 | full | <N> cyc | <Amber24 §X p.Y> |
 | Heat | NVT 0→<T> K, Langevin γ=<γ>, restrained <K> kcal/mol·Å² | <ps> | <Amber24 §X p.Y> |
 | Burst density | NPT, barostat=1, taup=0.5, no restraint | until mean <ρ>±<tol> g/cc + fluct < <f> | <Amber24 §X p.Y or skills/amber-bugs.md §burst> |
-| Equil2 | NPT, barostat=1, taup=2.0, restrained 0.5 kcal/mol·Å² | <N> ps | <see Equil2 sizing> |
-| Production | NPT, MC barostat, no restraint | <N> ns | <user / default> |
+| Equil2 | NPT, barostat=1, taup=<τ>, restrained <K> kcal/mol·Å² | <N> ps | <Amber24 §X p.Y + Equil2 sizing reasoning below> |
+| Production | NPT, MC barostat, no restraint | <N> ns | <user / lit PMID / manual + observable-timescale reasoning> |
 
-### Production length defaults (if user did not specify)
-| Study type | Default | Reason |
-|------------|---------|--------|
-| Stability check / smoke test | 10 ns | RMSD plateau |
-| Ligand bound, no FE | 50 ns | conformational sampling around pose |
-| Binding/MMPBSA/ΔG | 50 ns × 3 replicates | binding free energy needs replicates |
-| Flap dynamics / loop / allostery | 100–500 ns | rare-event regime |
-| TI / FEP / alchemical | 5 ns × N λ | per-window |
-| IDP / disordered | 500 ns – 1 µs | sampling regime |
+### Production length — NO DEFAULTS TABLE
 
-If user said a time → use it verbatim, mark source `user`.
-If user did NOT say → pick default above, mark source `DEFAULT` so user notices.
+Agent picks per study from observable + lit precedent. Reasoning chain required:
 
-### Equil2 sizing (auto-pick)
-| Condition | Equil2 |
-|-----------|--------|
-| Small <50k atoms, burst converged ≤2 iter | 250 ps |
-| Medium 50–100k OR burst 2–5 iter | 500 ps |
-| Large >100k OR burst >5 iter (long cold) | 1 ns |
-| Membrane | 2 ns |
-Auto-extend if validate_step() shows |temp − target| > 5 K after — no extra approval needed.
+1. Identify OBSERVABLE timescale from lit (Step 2b extraction):
+   - What ns/µs range did precedent papers use for THIS observable?
+   - Did they report convergence (RMSD plateau, ΔG ± SEM stable)?
+2. Estimate system-specific timescale (folding ~µs, binding ~10-100 ns, IDP > µs)
+3. Apply user constraint (compute budget, walltime cap)
+4. State chosen length in PLAN.md with: lit precedent PMID + observable timescale + caveat if shorter than precedent
+5. If user gave a length verbatim → use it, mark source `user prompt`
+
+Banned: "skill default", "DEFAULT", arbitrary round numbers without justification.
+
+### Equil2 sizing — NO DEFAULTS TABLE
+
+Agent picks per study from system size + density convergence behavior + observable.
+Reasoning chain required:
+
+1. System size (from preflight): tiny (<15k), small (<50k), medium (<100k), large (>100k), membrane
+2. Burst loop iterations needed before convergence (from prior step)
+3. Density temperature recovery time (Langevin γ + system size determines)
+4. Observable sensitivity to starting conformation (drug binding needs longer equil than stability check)
+
+Write chosen Equil2 length in PLAN.md with reasoning, cite Amber24 manual section.
+Auto-extend allowed if validate_step shows |T − target| > 5 K after equilibration — log
+the auto-extend in PROCESS_REPORT.md.
 
 ## Box
-- Solvent: <model>, padding <N> Å
-- Ions: Joung-Cheatham, neutralize-only (default) OR <other>
+- Solvent model: <from PLAN §Force fields>
+- Padding: <N> Å — agent picks per study. Reasoning chain:
+  1. Minimum image cutoff (Amber default `cut=10` Å) + buffer for conformational
+     drift → at least cut + 2 Å padding for stable folded protein
+  2. Larger padding (12-15 Å) for IDP (extended states), allosteric loops, drug
+     ligand binding studies where pocket conformations sample large volume
+  3. Membrane systems: handled by packmol-memgen / CHARMM-GUI, NOT solvateBox
+- Ions: from PLAN §Force fields (water-matched, validated)
+  - Neutralization scheme: agent picks per study. Options:
+    - Neutralize-only (`addIons sys <ion> 0`): for free energy / binding studies
+      where added salt would alter the reference state
+    - Physiological salt (~150 mM NaCl via `addIons` count): for studies where
+      ionic strength matters (electrostatic interactions, IDPs, membrane potential)
+  State the choice + reasoning in PLAN.md, cite manual page or precedent paper.
 
 ## Analysis targets
-- <e.g. backbone RMSD, RMSF, flap_tip distance, active_site distance>
+- <observable-specific metrics from Step 2b lit + study objective, NO defaults>
+- Agent picks based on what the study aims to characterize. Examples (NOT defaults):
+  backbone RMSD, RMSF, secondary structure populations, distance/angle distributions,
+  fraction native contacts, Rg, end-to-end distance, ΔG decomposition, etc.
 
 ## Literature precedent (from Step 2b pubmed search)
 | Reference (PMID, DOI) | System | Sim length | FF | Key observable / value |
 |------------------------|--------|------------|-----|------------------------|
-| <Author et al. Year, PMID:..., DOI:...> | <closest match> | <ns> | <ff> | <e.g. flap_tip 5.3 Å closed> |
-(3–5 most relevant papers. If 0 found → "no published precedent — defaults are skill only".)
+| <Author et al. Year, PMID:..., DOI:...> | <closest match> | <ns> | <ff> | <observed value> |
+(3–5 most relevant papers. If 0 found → "no published precedent — agent decisions
+based on manual + training knowledge only, flagged for user review".)
 
-Defaults below align with / deviate from above — note any deviations and why.
+Every parameter choice in this PLAN MUST be cross-referenced to:
+- A lit row above (preferred), OR
+- An Amber24 manual page (RAG-cited), OR
+- An explicit "Tier 3: training knowledge — <reason>" note
 
 ## Method best practices (from Step 2c lit + RAG — MANDATORY if non-standard sim triggered)
 
@@ -572,15 +611,18 @@ explicit reasoning (pKa from manual / literature / electrostatic context).
 | Residue | State | pKa context | Rationale |
 |---------|-------|-------------|-----------|
 
-## 4. Methods (mdin settings — quote actual values used)
+## 4. Methods (mdin settings — quote ACTUAL values used in this study)
+This table is filled with the actual values from the executed mdin files —
+NOT a template. Read each mdin, copy verbatim. NO hardcoded examples below.
+
 | Step | Ensemble | Thermostat | Barostat | dt | cut | SHAKE | Restraints | Length |
 |------|----------|------------|----------|----|----|-------|------------|--------|
-| Min1 | — | — | — | — | 10 Å | — | 10 kcal/mol·Å² on solute | 5000 cyc |
-| Min2 | — | — | — | — | 10 Å | — | none | 10000 cyc |
-| Heat | NVT | Langevin γ=2 | — | 2 fs | 10 Å | H | 5 kcal/mol·Å² | 100 ps, 0→300 K |
-| Burst | NPT | Langevin γ=1 | Berendsen taup=0.5 | 2 fs | 10 Å | H | none | 10 ps × N |
-| Equil2 | NPT | Langevin γ=2 | Berendsen taup=2.0 | 2 fs | 10 Å | H | 0.5 kcal/mol·Å² | <N> ps |
-| Prod | NPT | Langevin γ=2 | MC taup=5.0 | 2 fs | 10 Å | H | none | <N> ns |
+| Min1 | — | — | — | — | <Å> | — | <K> kcal/mol·Å² <mask> | <cyc> |
+| Min2 | — | — | — | — | <Å> | — | <K> kcal/mol·Å² <mask> or none | <cyc> |
+| Heat | <NVT/NPT> | <type γ=X> | <type taup=X or —> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² | <ps>, <T_init>→<T_final> K |
+| Burst | <NVT/NPT> | <type γ=X> | <type taup=X> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² or none | <N> × <ps> |
+| Equil2 | <NVT/NPT> | <type γ=X> | <type taup=X> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² | <ps> |
+| Prod | <NVT/NPT> | <type γ=X> | <type taup=X or —> | <fs> | <Å> | <H/all> | <K> kcal/mol·Å² or none | <ns> |
 
 ## 5. Results
 Quantitative — every value here cites a file path. No prose-only claims.

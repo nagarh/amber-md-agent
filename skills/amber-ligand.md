@@ -232,8 +232,20 @@ Read `charge` from script output above, then submit:
 ```bash
 # In SLURM script — cd into study directory FIRST
 cd /path/to/studies/<study_name>/system/
-antechamber -i ligand_ready.sdf -fi sdf -o ligand.mol2 -fo mol2 -c bcc -at gaff2 -nc <charge>
+antechamber -i ligand_ready.sdf -fi sdf -o ligand.mol2 -fo mol2 \
+    -c <CHARGE_METHOD> -at <ATOM_TYPE> -nc <charge>
 ```
+
+Per-study choices (cite in PLAN.md §Force fields, validate via RAG of Amber 24
+manual section on antechamber):
+
+| Flag | Options | Per-study reasoning |
+|------|---------|--------------------|
+| `-c` (charge) | `bcc` (AM1-BCC, fast, ~95% RESP accuracy), `resp` (RESP from QM, gold standard but needs Gaussian input), `cm5` (CM5 charges from QM) | bcc for screening/binding; resp for publication-grade ΔG or unusual chemistry (boronates, sulfonates, metal coordination) |
+| `-at` (atom type) | `gaff2` (current GAFF v2.x), `gaff` (legacy v1.x) | gaff2 standard since Amber 18; only use gaff for reproducing pre-2018 studies |
+
+Confirm choice via `rag_query("antechamber AM1-BCC GAFF2")` and document in PLAN.md
+with manual page citation.
 
 ⚠ Never run on login node — `Fatal Error! Cannot properly run sqm`
 ⚠ Always `cd` into study dir — intermediates (ANTECHAMBER_*.AC, sqm.in/out, ATOMTYPE.INF) write to CWD

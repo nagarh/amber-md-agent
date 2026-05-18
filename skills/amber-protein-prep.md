@@ -161,24 +161,39 @@ the ions will be JC-OPC variants, not JC-TIP3P. Mixing leaprc.water.tip3p with
 manually-loaded opc params → wrong ion behavior. Always use the leaprc that
 matches your PLAN.md water choice.
 
-### Ion concentration
-Default — always use neutralize-only:
-```
-addIons sys Na+ 0    # adds enough Na+ to reach net charge = 0
-addIons sys Cl- 0    # adds enough Cl- to reach net charge = 0
-```
-`0` = "add as many as needed to neutralize." Both lines together handles both positive and negative net charges. This is standard for binding studies and free energy calculations — adding extra salt changes the reference state.
+### Ion concentration — agent decides per study
 
-Only add physiological salt (150 mM NaCl) when user explicitly requests it or study specifically requires physiological ionic strength (DNA, highly charged proteins, ion-specific effects).
+Two options. Pick per study, justify in PLAN.md (cite manual page or precedent
+paper):
 
-### Box size
-| Padding | When |
-|---------|------|
-| 10 Å | Small peptides < 50 residues, compute time critical |
-| 12 Å | Standard — most protein-ligand binding studies |
-| 15 Å | Highly charged protein (net charge > ±10), large conformational changes, IDPs |
+**Neutralize-only** (`addIons sys <CATION> 0; addIons sys <ANION> 0`):
+- 0 = add as many as needed to reach net charge = 0
+- Reference state for free energy calculations (TI, MMPBSA, MMGBSA) —
+  added salt changes the reference Hamiltonian
+- Binding studies without explicit ionic strength dependence
 
-Rule: box side must be > protein diameter + 2× padding AND > 2× PME cutoff (20 Å for cutoff=10). Check box dimensions after tLEaP: `inspect_pdb(pdb_file="system.prmtop")`.
+**Physiological salt** (~150 mM NaCl, explicit ion counts via `addIons sys Na+ <N>`):
+- Studies where ionic strength matters: highly charged proteins, IDPs (salt
+  affects polyelectrolyte effect), DNA/RNA (counterion condensation), membrane
+  protein potentials, ion-specific binding
+
+Compute exact ion count: N = round(0.150 mol/L × N_A × V_box_L). Cite manual
+page or precedent paper supporting the chosen scheme in PLAN.md.
+
+### Box size — agent decides per study
+
+Padding must satisfy `box_side > protein_diameter + 2 × padding` AND
+`box_side > 2 × PME_cutoff` (e.g. > 20 Å for cut=10 Å).
+
+Choice depends on:
+- Conformational space the simulation needs to sample (folded vs IDP vs allosteric)
+- Cutoff used (set in mdin, typically 8-12 Å)
+- Lit precedent for the same observable (Step 2b extraction — what padding did
+  precedent papers use?)
+- Compute budget (larger box → more atoms → slower)
+
+Document chosen padding in PLAN.md §Box with reason. Verify post-tLEaP via
+`inspect_pdb(pdb_file="system.prmtop")` that box dimensions satisfy the rule.
 
 ### Multimer / oligomer systems
 Load full multimer PDB (preferred — preserves inter-chain contacts):

@@ -288,17 +288,18 @@ Override with `--target-density`, `--density-tolerance`, `--density-fluct-max`. 
 
 `write-equil-density` fires production immediately after density threshold. The burst restarts compress the box but do NOT restore temperature — system enters production cold (e.g. 240 K instead of 300 K), skewing all MM-GBSA energetics.
 
-After burst loop completes, always submit a 500 ps re-equilibration before production:
+After burst loop completes, always submit a re-equilibration before production.
+Length is per-study (see amber-workflow.md §Equil2 sizing — no default):
 
 ```bash
-# equil2.mdin: same as equil.mdin but irest=1, ntx=5, nstlim=250000 (500 ps)
+# equil2.mdin: same as equil.mdin but irest=1, ntx=5, nstlim=<from PLAN.md>
 # input: equil.rst7 (burst loop output)
 pmemd.cuda -O -i equil2.mdin -o equil2.mdout -p system.prmtop \
   -c equil/equil.rst7 -r equil2.rst7 -x equil2.nc
 
 # Validate before production
-python scripts/md_agent.py validate-step equil2.mdout --target-temp 300 --min-density 0.90
-# temperature must be ≥ 295 K before proceeding
+python scripts/md_agent.py validate-step equil2.mdout --target-temp <T_from_PLAN> --min-density <ρ_min_from_PLAN>
+# temperature must be within <tol> K of target before proceeding
 ```
 
 Only after validate-step PASS on temperature → submit production with `-c equil2.rst7`.

@@ -215,7 +215,35 @@ pH 8 (blood plasma in some studies) all valid per biological context.
 Cite literature + propka3 calculation supporting BOTH the pH choice AND each
 non-standard residue protonation state.
 
-## Simulation protocol
+## Simulation Conditions (REQUIRED — surface explicitly so user can override)
+
+| Condition | Value | Reason / source |
+|-----------|-------|-----------------|
+| Production temperature | <T> K | <biological context + lit PMID + manual page — NOT default 300 K> |
+| Pressure | <P> atm | <NPT 1 atm standard for solution; 0 atm for vacuum; high-P studies override> |
+| pH (links to §Protonation) | <X> | <see §Protonation rationale> |
+| Ionic strength | <neutralize-only OR ~150 mM NaCl> | <see §Box ions> |
+
+Surface these top-level so the user sees them in the approval gate and can override
+(e.g. "actually use 310 K for fever conditions" or "use 277 K for low-T study").
+
+Possible temperatures (NOT defaults — agent picks + justifies):
+- 277 K  (4 °C, cold storage / cryo-preservation)
+- 290 K  (17 °C, room-temp X-ray crystallography)
+- 298 K  (25 °C, NMR standard)
+- 300 K  (27 °C, common MD simulation T)
+- 310 K  (37 °C, human physiological)
+- 313 K  (40 °C, fever / mild heat-shock)
+- 323 K  (50 °C, thermophile organisms)
+- 270–600 K range  (T-REMD ladder for folding/unfolding thermodynamics)
+
+If user prompt is silent on T, agent picks based on:
+1. What temperature is the system biologically active at? (e.g. human protein → 310 K, thermophile → 333+ K)
+2. What temperature was the experimental reference structure obtained at? (NMR ~298, X-ray ~290)
+3. What temperature was the precedent paper run at? (Step 2b extraction)
+Always cite the choice in PLAN.md and PROCESS_REPORT.md.
+
+## Simulation Protocol
 
 NO HARDCODED DEFAULTS. Agent fills every cell per study from:
 1. Amber 24 manual (RAG-cite section + page for each parameter)

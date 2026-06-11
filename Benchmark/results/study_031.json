@@ -1,0 +1,16 @@
+{
+  "study_id": "031",
+  "orig_id": "009",
+  "title": "Trypsin-benzamidine binding (3PTB): 20 ns MD + MM-PBSA/GBSA",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "3PTB fetched/cleaned (raw_pdbs/3PTB.pdb), propka3 protonation (3PTB.pka: His57->HID, Asp189 anionic), 6 disulfides as CYX, structural Ca2+ retained, BEN parametrized GAFF2/AM1-BCC nc=+1 (s031_antech log ok), truncated octahedron TIP3P 12A pad, 9 Cl- neutralize net +9, ~26.6k atoms; tLEaP succeeded (system/system.prmtop,inpcrd) and topology is physically stable through 20 ns."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives 4-tier justified FF table: ff14SB (Tier1, RAG p.34/36 validated), TIP3P (Tier1, RAG p.55/883), GAFF2+AM1-BCC ligand (Tier2, RAG p.33), Joung-Cheatham ions (Tier2, RAG p.55); box (truncated oct 12A) and sim length (20 ns from prompt) justified, saltcon/istrng=0.15 from Forouzesh 2024. RAG-first and lit review (5 PMIDs) present. PLAN auto-approved under benchmark autonomous mode. No hardcoded-default phrasing."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil/equil2/prod all present and finished. prod.mdout reaches NSTEP=10,000,000 (full 20 ns); final AVERAGES density=1.0274 g/cc, TEMP=300.03 K, Etot stable ~-63000 with no NaN/blowup/drift; wall 1.0 h on 1 GPU."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct method+observables for the prompt: single-trajectory MM-PBSA/GBSA (MMPBSA.py.MPI, ante-MMPBSA dry topologies, igb=2/saltcon=0.15, istrng=0.15, 101 snapshots, equilibration discarded) plus backbone RMSD (0.90 A), ligand RMSD in S1 (0.71 A), and amidinium salt-bridge hbond occupancy (Asp171 90-96%, Gly196 99.1%) directly answering binding-FE + pose-stability question."},
+    "C5": {"credit": 0.8, "applicable": true, "note": "Paper-confirmed (PMID 20949517 Hou 2011 JCC: GBSA overestimates, GBSA>PBSA, both over-bind without entropy). Agent: ligand stays in S1 pocket (RMSD 0.71 A, bidentate Asp salt bridge + Gly196 carbonyl) = matches key. MM-GBSA -29.1 kcal/mol sits right at edge of key's -30 to -45 overestimate band. MM-PBSA -13.1 kcal/mol is less negative than key's -20 to -30 band (off ~7), but methodologically explained (3-term PB nonpolar vs single-SASA). Ordering GBSA<PBSA<-6.5 exp and the entropy-gap narrative correctly reproduced; minor numeric miss on PBSA range -> 0.8."}
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

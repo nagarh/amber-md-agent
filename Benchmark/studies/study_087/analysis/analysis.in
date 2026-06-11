@@ -1,0 +1,54 @@
+# OmpF POPE/POPG 50 ns analysis: barrel stability, L3 dynamics, pore/eyelet dimensions
+parm /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_087/system/ompf_membrane.prmtop
+# crystal reference (minimized start) for RMSD
+reference /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_087/system/ompf_membrane_centered.inpcrd [xtal]
+trajin /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_087/simulations/prod/prod.nc
+
+# image trimer into box, anchor on protein
+autoimage anchor :1-1020
+
+# ---- align on whole-barrel backbone (rigid beta-barrel frame) ----
+rms barrel ref [xtal] :1-1020@CA,C,N out rmsd_barrel.dat mass
+
+# ---- per-chain backbone RMSD (trimer stability) ----
+rms chainA ref [xtal] :1-340@CA,C,N out rmsd_chainA.dat nofit
+rms chainB ref [xtal] :341-680@CA,C,N out rmsd_chainB.dat nofit
+rms chainC ref [xtal] :681-1020@CA,C,N out rmsd_chainC.dat nofit
+
+# ---- L3 loop RMSD vs crystal (after barrel align above), per chain ----
+# L3 constriction loop ~ residues 100-130 (offsets +0/+340/+680 for chains A/B/C)
+rms L3_A ref [xtal] :100-130@CA,C,N out rmsd_L3_chainA.dat nofit
+rms L3_B ref [xtal] :440-470@CA,C,N out rmsd_L3_chainB.dat nofit
+rms L3_C ref [xtal] :780-810@CA,C,N out rmsd_L3_chainC.dat nofit
+
+# ---- per-residue RMSF over the whole trimer backbone (highlights L3 flexibility) ----
+atomicfluct out rmsf_byres.dat :1-1020@CA byres
+
+# ---- EYELET / pore constriction distances (chain A) ----
+# L3 acidic cluster (D113 CG / E117 CD) to opposite-wall basic ladder (R42/R82/R132 CZ)
+distance d_D113_R42  :113@CG  :42@CZ  out eyelet_chainA.dat
+distance d_D113_R132 :113@CG  :132@CZ out eyelet_chainA.dat
+distance d_E117_R42  :117@CD  :42@CZ  out eyelet_chainA.dat
+distance d_E117_R82  :117@CD  :82@CZ  out eyelet_chainA.dat
+distance d_E117_R132 :117@CD  :132@CZ out eyelet_chainA.dat
+# chain B eyelet
+distance dB_D113_R42  :453@CG  :382@CZ  out eyelet_chainB.dat
+distance dB_E117_R132 :457@CD  :472@CZ out eyelet_chainB.dat
+# chain C eyelet
+distance dC_D113_R42  :793@CG  :722@CZ  out eyelet_chainC.dat
+distance dC_E117_R132 :797@CD  :812@CZ out eyelet_chainC.dat
+
+# ---- pore radius proxy: radius of gyration of the constriction-zone CA ring (chain A) ----
+# minimum cross-section formed by L3 + facing barrel wall residues
+radgyr rg_L3A :100-130@CA out rg_L3_chainA.dat
+
+# ---- L3 tip displacement: COM distance of L3 tip (D113-E117) from barrel axis center ----
+# use vector/center: distance of L3-tip COM to whole-chain-A COM (radial proxy)
+distance L3tip_A :113-117 :1-340 out L3tip_radial_chainA.dat
+
+run
+
+# ---- membrane: area per lipid + bilayer thickness ----
+# (separate pass) lipid phosphate Z-distribution for thickness; box area for APL
+go
+quit

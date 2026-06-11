@@ -1,0 +1,16 @@
+{
+  "study_id": "005",
+  "orig_id": "066",
+  "title": "Lectin-glycan selectivity (ConA: methyl-a-D-mannoside vs methyl-a-D-glucoside)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "Two ConA monomer systems built: 5CNA->mannose (MMA), 1GIC->glucose (GYP), both chain A 237 res with structural Mn2+ + Ca2+ retained. GLYCAM06j sugars placed by Kabsch fit (0.76/0.83 A); tLEaP succeeded (system/{manM,glcG}_system.prmtop, ~38.6/39.2k atoms), glycosidic bond verified present, oct box 12 A pad, neutralized. Both metals stay coordinated (Mn-Ca ~4.6-4.7 A, analysis/*_MnCa.dat)."},
+    "C2": {"credit": 0.95, "applicable": true, "note": "PLAN.md gives full tier-justified FF table: ff14SB+GLYCAM06j+TIP3P + Li-Merz 12-6 metals, each with lit precedent (Osterne 2024 PMID:38559841) + Amber24 manual page + reason; metal-model choice (non-bonded 12-6, GPU-compatible, no Gaussian for MCPB) explicitly reasoned; identical FF/box/protocol across legs (controlled C2-epimer comparison). RAG/manual-validation cited. Minor: 30 ns vs 200 ns lit precedent, but justified for pose stability + MMPBSA."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil/equil2/prod all finished for both legs; prod.out shows NSTEP=15000000, TIME=30600 ps (30 ns) each, TEMP ~300 K, no blow-up. 3000 frames/leg; backbone RMSD ~1.0 A stable (manM 1.07, glcG 1.03)."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct observables for the prompt: ligand pose RMSD (manM 1.25 < glcG 1.57 A), backbone RMSD/RMSF, ligand-protein H-bond occupancy (donor+acceptor), metal retention (MnCa/LigCa), and single-trajectory MM-GBSA (igb=2, saltcon 0.15) + MM-PBSA (istrng 0.15). Mannose vs glucose directly compared."},
+    "C5": {"credit": 0.9, "applicable": true, "note": "Key expects mannose more stable (lower RMSD, more H-bonds) + more favorable MMPBSA. Agent: mannose lower pose RMSD (1.25 vs 1.57), more H-bond occupancy (3.71 vs 3.61), and more favorable dG in BOTH methods (FINAL_GB manM -24.1 vs glcG -22.1; FINAL_PB -15.5 vs -14.1), ddG -1.4 to -2.1 kcal/mol favoring mannose vs experimental ~-0.6 to -1.0. Paper (PMID:8557713, Naismith & Field 1996) confirms ConA's specific mannose recognition at the monosaccharide site (Tyr12/Asn14/Asp16 + conserved water H-bond network). Direction and ranking match; small absolute magnitude slightly overshoots, expected for entropy-free endpoint MMPBSA."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

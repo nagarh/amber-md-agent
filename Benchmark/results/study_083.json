@@ -1,0 +1,16 @@
+{
+  "study_id": "083",
+  "orig_id": "028",
+  "title": "Cytochrome P450 Compound I (Fe=O) intermediate, P450cam 2CPP",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "2CPP fetched, chain A 10-414, ACE-capped N-term, propka3 run (Cys357->CYM thiolate, Glu366->GLH). tleap_build.out shows Errors=0, total perturbed charge 0.002 (neutral), 48949 atoms (14153 TIP3P, 17 Na+). Bonded Fe-O/Fe-S/Fe-N coordination declared and verified in prmtop; oxo OAA added at distal face (hem_cpdi.mol2: FE +0.262, OAA OY -0.373). No residues silently dropped."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives full tier-protocol justification for every parameter: ff14SB/TIP3P/Joung-Cheatham ions/10A pad/5ns each tied to Shahrokh 2012 PMID:21997754 + Amber24 manual pages, no hardcoded defaults. Explicit deviation-from-default documentation (ff14SB not ff19SB, TIP3P not OPC, for heme-param compatibility). RAG-first, Step 2b/2c literature review, PLAN approval gate present."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil/equil2/prod all completed. prod.mdout: NSTEP=2500000 (5 ns), AVERAGES Temp 303.02 K, Density 1.0261 g/cc, Etot -117331.7 stable, grep NaN=0. Equil burst auto-fixed via restart (documented in PROCESS_REPORT). 361 ns/day on 1 GPU."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "analysis.in computes the correct Compound-I observables on the right atoms: Fe=O (:HEM@FE-:HEM@OAA), Fe-S(Cys357) thiolate, 4x Fe-N(pyrrole), N-Fe-O angle, reactive oxo...camphor-C5 distance, backbone RMSD/RMSF. Means recomputed from .dat files match the report (Fe-O 1.648, Fe-S 2.362). Methods and observables match the prompt's 'set up heme with correct oxidation/spin state' question."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Answer key (orig 028) expects qualitative outcome: 'recognize need for special heme parametrization; bonded model for Fe-porphyrin; may need MCPB.py or pre-parametrized heme FF.' Agent did exactly this -- bonded Fe-porphyrin Compound-I model (Fe(IV)=O, high-spin quartet via Shahrokh 2012 QM-RESP charges + bonded terms), correctly avoided unavailable Gaussian/MCPB and used a published pre-parametrized set. Fe=O 1.648 +/- 0.023 A matches DFT Cpd I (~1.62-1.65 A); proximal Cys357 thiolate trans to oxo maintained. Source paper Rittle & Green Science 2010 (PMID:21071661) read: experimental capture/characterization of P450 Compound I (Mossbauer/EPR, k_app=1.1e7 /M/s) -- confirms Cpd I as the reactive Fe(IV)=O species but provides no MD value, so C5 scored against the qualitative expected outcome, which is fully met."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

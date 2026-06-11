@@ -1,0 +1,36 @@
+{
+  "study_id": "009",
+  "orig_id": "016",
+  "title": "Estrogen receptor alpha LBD + estradiol (1ERE), 50 ns MD — H12 dynamics & ligand H-bonds",
+  "checkpoints": {
+    "C1": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "1ERE fetched (raw_pdbs/1ERE.pdb); chain A LBD monomer + estradiol (EST) built. Two crystallographic gaps (A:331-336 pLDDT 91, A:462-464 pLDDT 42.6) filled by AlphaFold graft, ACE/NME caps, junction validated OK. Estradiol parametrized GAFF2+AM1-BCC (system/estradiol.mol2/.frcmod, sqm.out). leap.log: 'Exiting LEaP: Errors=0; Warnings=0', total unperturbed charge -5.00 neutralized with 5 Na+, OPC octahedron 11647 waters, system.prmtop/inpcrd produced (~50,600 atoms). Clean build."
+    },
+    "C2": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "PLAN.md gives a tier-justified FF table: ff19SB (Tier 2, manual p.33-34, improved helical propensities relevant to H12), OPC water (Tier 2, manual p.34), GAFF2+AM1-BCC ligand (Tier 2, manual p.33), Joung-Cheatham ions. Box 12 A padding justified (>=10 A min-image), 50 ns matches prompt, protonation set by propka3 @ pH 7.0 with per-residue rationale (Glu353 GLU-1, His524 HID). No hardcoded defaults; literature precedent (PMID 41285747, 41115053) cited; PLAN.md has explicit approval gate."
+    },
+    "C3": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "min1, min2, heat, equil (Berendsen), equil2 (MC barostat), prod all completed. prod.mdout: 25,000,000 steps = 50 ns, 4.66 h wall, AVERAGES T=299.99 K, EPtot stable ~-150921, 0 NaN/overflow; density 1.027 g/cc stable. check_convergence: core RMSD drift 0.24 A and H12 RMSD drift 0.25 A (<0.5). Trajectory prod.nc 5000 frames present."
+    },
+    "C4": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Analysis directly targets the prompt: H12 backbone RMSD (538-546) vs agonist crystal (rmsd_h12.dat, 1.52 A), per-residue RMSF (rmsf_byres.dat), ligand pose RMSD (1.03 A), and cpptraj hbond with proper donor/acceptor masks for E2 3-OH<->Glu353/Arg394 and 17b-OH<->His524 (hb_E2_donor_avg.dat, hb_E2_acceptor_avg.dat) plus COM distances. Correct method and observables for both questions (H12 agonist position + the two named H-bonds)."
+    },
+    "C5": {
+      "credit": 0.95,
+      "applicable": true,
+      "note": "Paper (PMID 9338790, Brzozowski 1997 Nature) abstract confirms the agonist/antagonist H12 framework and estradiol binding mode; answer key expects H12 locked agonist, 3-OH H-bonds Glu353+Arg394 (water-mediated to Arg394), 17b-OH to His524. Agent reproduces all: H12 stable agonist (RMSD ~1.5 A, RMSF 0.78 A, no transition); 17b-OH<->His524 97.4% occupancy (hb_E2_acceptor_avg.dat, EST O2<->HID524 ND1, 0.974); 3-OH<->Glu353 ~65-70% combined; 3-OH<->Arg394 ~55%. Minor nuance: Arg394 contact observed as direct rather than the paper's water-mediated bridge, but the contact and all qualitative expectations are matched."
+    }
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

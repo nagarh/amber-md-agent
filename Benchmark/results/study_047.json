@@ -1,0 +1,16 @@
+{
+  "study_id": "047",
+  "orig_id": "062",
+  "title": "Hemoglobin O2 binding (oxy-deoxy R/T transition)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "Both PDBs fetched + cleaned (raw_pdbs/2DN1.pdb, 2DN2.pdb); oxy tetramer built from ASU half-tetramer via REMARK-350 BIOMT op-2, deoxy ASU used directly. Bonded all-atom Giammona heme (params/heme_all.in + frcmod.hemall) + custom OXY.prepi for bound O2. tLEaP succeeded (system/{oxy,deoxy}_final.out); Fe coordination verified by parmed (oxy FE->{NA,NB,NC,ND,NE2,O1}; deoxy FE->{NA,NB,NC,ND,NE2}). Topologies sane: 41,700/41,291 atoms, net-neutral, ~0.15 M NaCl. Expert-level heme+quaternary build executed cleanly."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives a full tier-justified FF table: ff14SB (Tier 2, manual p.34-36; chosen over ff19SB for CX-type compatibility with heme frcmod), Giammona heme (Tier 3 + external AMBER Param DB precedent, MCPB infeasible no Gaussian), TIP3P (Tier 2), Joung-Cheatham ions (Tier 2), 310 K (Tier 1 physiological body temp), 0.15 M NaCl (blood), 12 A octahedron padding. mdin RAG-confirmed. Literature precedent (Valenci & Tobi 2025 PMID 40616438) cited. No hardcoded defaults; state-dependent His146 Bohr protonation justified via propka3."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1->min2->heat->equil->equil2->prod all finished for both systems. Both prod runs reached full 50 ns (25M steps) with clean termination (prod.mdout final timing blocks, 3.76 h each). Prod averages T=310.0 K, rho=1.050-1.051 g/cc; RMSD converged (drift 0.06/0.16 A), no blow-up/NaN."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Analysis targets both prompt foci exactly. Salt-bridge panel (analysis/{oxy,deoxy}_sb.dat) covers alpha1-beta2 interface pairs (Tyr42-Asp99, Arg141-Asp126, His146-Asp94, Lys40-His146, Asp94-Asn102), symmetry-averaged over equivalent interfaces, occupancy = %frames <4 A. Iron-proximal-His geometry: Fe-Neps2(His) distance (_feHis.dat) + Fe out-of-plane doming vs pyrrole-N4 centroid (_feN4.dat). Plus RMSD/RMSF convergence. Raw data substantiate report numbers (deoxy Tyr42-Asp99 ~3.5 A formed, oxy ~11 A broken)."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Paper confirmed via WebSearch (Perutz 1970 Nature 228:726, PMID 5528785 — PubMed stores no abstract for this 1970 paper; nature.com/mindat confirm content): T-state constrained by C-terminal inter-subunit salt bridges, broken in R; iron out-of-plane 5-coord deoxy vs in-plane 6-coord oxy. Answer key Expected (R: salt bridges broken/interface loose; T: Asp94-His146 maintained; proximal His-Fe stable) is faithful. Agent reproduces it: deoxy/T Tyr42-Asp99 98%, Arg141-Asp126 99%, His146-Asp94 43% engaged vs oxy/R 0% (all broken) with R-state Asp94-Asn102 switch forming (16% vs 1%); Fe-His stable (~2.03 oxy / 2.05 A deoxy) with deoxy more domed (0.102 vs 0.074 A) — correct T-direction. Strong qualitative + directional match."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

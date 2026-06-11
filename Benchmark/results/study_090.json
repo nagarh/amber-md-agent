@@ -1,0 +1,16 @@
+{
+  "study_id": "090",
+  "orig_id": "070",
+  "title": "Amyloid-beta 42 monomer secondary structure (200 ns MD)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1IYT MODEL 1 fetched; native charged termini correctly left uncapped (genuine peptide); propka3 -> His6/13/14 HID; net peptide charge -3.000 (canonical Abeta42) confirmed by charge-check tLEaP (job 38542); full build job 38544 Errors=0, 38486 atoms, OPC trunc-oct 12 A pad, 9451 waters, 29 Na+/26 Cl- (neutralize + 150 mM), final net charge 0.000. Topology sane, no dropped residues."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "Full tier protocol in PLAN.md: ff19SB (Tier1 PMID:36150020 + Tier2 Amber24 3.1.1 p.34 + leaprc validation), OPC water (PMID:39830132 + Amber24 3.6.1 p.52-54 IDP-validated, avoids TIP3P over-compaction), JC/Li-Merz OPC ions (3.7 p.55), pH 7.4 (extracellular/CSF, propka3), 310 K (physiological), 150 mM NaCl all justified. No hardcoded defaults; RAG-confirmed FF existence; PLAN.md gate present."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil/equil2/4x50ns prod all PASS (jobs 38547-38563). prod1->prod4 Etot stable -102827 -> -102830, density 1.0060 g/cc, T 309.99 K, VOLUME ~291131 A^3, no NaN in any prod*.mdout. 200 ns (100M steps) completed cleanly across 4 chained segments."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct method/observables for the SS question: cpptraj DSSP (dssp_total.dat global fractions + dssp_byres.agr per-residue + dssp_assign.txt), plus Rg (rgyr.dat), end-to-end, CA RMSD/RMSF, and Asp23-Lys28 salt-bridge distance (saltbridge_D23K28.dat) directly diagnostic of the aggregation-relevant CHC/C-term beta motif. Analysis job 38801, 20000 frames."},
+    "C5": {"credit": 0.25, "applicable": true, "note": "Paper (Luhrs 2005 PMID:16293696) confirms the underlying beta-propensity: res 1-17 disordered, 18-42 beta-strand-turn-beta-strand (beta1 18-26 incl CHC 17-21, beta2 31-42), consistent with answer key's expected monomer behavior (mostly disordered + transient beta-hairpin, CHC 17-21 contacting C-term 30-42, collapsed coil). Agent's MEASURED result is the OPPOSITE: helix-dominated (~54-60% helix, ~0.01% beta), Asp23-Lys28 salt bridge never formed (0.0%), stayed a collapsed helix. Agent honestly diagnoses this as 1IYT helical-start bias + single-200ns-trajectory below IDP convergence + ff19SB helix favoring, and does not over-claim. Result does not match the expected disordered/beta ensemble; partial credit for correct landscape interpretation and honest limitation diagnosis, not for the outcome."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

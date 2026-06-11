@@ -1,0 +1,13 @@
+# Membrane equilibration metrics: box XY area (-> area per lipid), bilayer thickness
+parm /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_087/system/ompf_membrane.prmtop
+trajin /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_087/simulations/prod/prod.nc
+autoimage anchor :1-1020
+# box dimensions per frame (X,Y,Z) -> area per lipid = X*Y / (n_lipids_per_leaflet)
+vector boxv box out box_dims.dat
+# bilayer thickness via P-P peak separation: avg z of upper vs lower leaflet phosphates
+# (use centered system; phosphates at :1021-2301@P31)
+# Track mean Z of all P31 atoms split by leaflet is non-trivial in cpptraj; instead
+# report P31 z-coordinate spread via a density-style histogram proxy:
+center :1021-2301@P31 origin
+run
+quit

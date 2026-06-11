@@ -1,0 +1,36 @@
+{
+  "study_id": "054",
+  "orig_id": "052",
+  "title": "GPCR beta2-adrenergic receptor (2RH1) + carazolol in POPC bilayer: ionic lock & toggle switch",
+  "checkpoints": {
+    "C1": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "2RH1 fetched/cleaned; T4L fusion (1002-1161) removed, ICL3 (231-262) capped, 4 ACE/NME caps; 2 disulfides as CYX (C106-C191, C184-C190); carazolol (CAU) parametrized GAFF2/AM1-BCC (system/carazolol.mol2/.frcmod, sqm.out present); POPC/LIPID21 bilayer + TIP3P + 0.15 M KCl via packmol-memgen. prmtop NATOM=80969 matches STUDY_REPORT; inpcrd box 98.75x98.59x102.57; tleap_system.log Total charge -0.000998 (neutral). No residues silently dropped; only benign 'Name change in pdb residue' lipid warnings."
+    },
+    "C2": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "PLAN.md has full tier-protocol FF table with PMIDs + Amber24 page refs: ff14SB+TIP3P+LIPID21+GAFF2 justified as the internally-consistent membrane-protein stack (LIPID21 validated w/ TIP3P, ff19SB+TIP3P contraindication noted). Membrane flags justified per manual (barostat=1 Berendsen, ntp=2 semi-iso, cut=10, nscm=0). Protonation via propka3 (receptor_capped.pka) incl. Asp79->ASH rationale. Step 2b/2c lit review (Fleetwood PMID:33506760, Vilar PMID:21334234, Dror, etc.). 310 K, 0.15 M KCl all justified. No hardcoded defaults; FF stack matches actual tleap_complex.in/tleap_system.in."
+    },
+    "C3": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "All stages present and finished: min1/min2/heat/equil1(chunked)/equil2/equil3/prod1/prod2. prod1 reached TIME 104000 ps (100 ns), prod2 reached NSTEP=50,000,000 TIME=204000 ps -> 200 ns total. prod2 AVERAGES: T=310.05 K, density=1.0228 g/cc, stable energies, no NaN/blow-up. validate_step PASS reported on equil3/prod1/prod2."
+    },
+    "C4": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Correct observables for the prompt. Ionic lock Arg131-Glu268: Cz-Cd 7.80+/-1.45 A and guanidinium-carboxylate COM (analysis/ionlock_CZCD.dat, ionlock_grp.dat) - re-derived from data files: mean 7.800, frac<6A=0.015, salt-bridge frac<4A=0.0000 (exact match to report). Toggle Trp286: chi2 106.8+/-9.2 (re-derived 106.77, frac 60-120=0.924) and chi1 -75.4+/-8.1 (re-derived -75.43) (w286_chi2.dat/w286_chi1.dat). Supporting TM-core bb RMSD 1.19+/-0.11 A, carazolol RMSD 1.22+/-0.15 A, RMSF all verified against data. 4000 frames = 200 ns @ 50 ps."
+    },
+    "C5": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Paper PMID:21228876 (Rosenbaum 2011, Nature 469:236; PMC3074335) read: 2RH1=inactive inverse-agonist-bound guide structure; agonist-active state relaxes to inactive-like absent G-protein. Key expected: inactive maintained, Trp6.48 inactive rotamer, TM RMSD<3A, carazolol stable, ionic lock intact. Agent reproduces all: TM RMSD 1.19 A (<3), carazolol stable (1.22 A), Trp286 locked inactive rotamer (chi2~107, chi1~-75, no switching), inactive fold stable 200 ns. Key's 'ionic lock intact' is an oversimplification: Dror 2009 PNAS (PMID:19258456) and the 2RH1 crystal itself show the beta2AR ionic lock is broken; lock forms only reversibly on us timescales. Agent's broken-lock finding (~7.8 A, 0% salt bridge) is MORE accurate than the key and consistent with the literature, not a contradiction. Core paper-confirmed outcome (inactive state stable) fully reproduced."
+    }
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

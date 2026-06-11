@@ -1,0 +1,16 @@
+{
+  "study_id": "067",
+  "orig_id": "080",
+  "title": "Protein-protein MMPBSA (IL-2 / IL-2R-alpha, PDB 1Z92)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1Z92 fetched/cleaned; the hard 113-missing-residue problem handled correctly per PROCESS_REPORT/PLAN: short gaps A:74-80 and B:48-52 loop-modeled (AlphaFold pLDDT 96.1/96.6), 39-res disordered inter-sushi linker B:65-103 split into D1(chain B)+D2(chain C) tethered by inter-domain disulfides B3-C147/B46-C104, termini ACE/NME capped. tLEaP build PASS (job 37922): system.prmtop 82,078 atoms, net 0, 6 SS bonds at 2.0 A, no silent drops; complex_dry 4,151 atoms confirmed via FINAL_RESULTS.dat topology header."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives 4-tier justification table: ff19SB (Tier2, manual p.33-34), OPC water (Tier2, p.34/54 'recommend ff19SB with OPC'), Joung-Cheatham ions (Tier2 §3.7), igb=8/mbondi3 (Tier2 p.69/71), PB radiopt=0/istrng=0.15 (Tier2 p.887/890), 12 A box and 20 ns each justified. Explicit banned-phrase check, no hardcoded defaults. propka3 @ pH7.4 with per-HIS rationale. RAG/manual grounding throughout; PLAN approval gate recorded."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "PROCESS_REPORT: min1(CPU SD clash relief E 1.7e17->-3.5e5), min2, heat(dt=0.001 after NaN re-run, 300.2 K), equil(1.020 g/cc), equil2(299.9 K), production 20 ns (job 37946) NSTEP 10M, density 1.024, 178 ns/day, 2000 frames. check_convergence RMSD drift 0.056 A < 0.5 A. No blow-up/NaN in final trajectory; instabilities diagnosed and fixed."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct method/observables for the PPI MMPBSA question: single-trajectory MMPBSA.py GB(igb=8)+PB on 150 decorrelated frames (501-2000, interval 10), energy-term decomposition (FINAL_RESULTS.dat: dVDW -82.08, dEEL -762.21, dEGB +798.99), per-residue idecomp=2 decomposition (DECOMP_OUTPUT.dat) flagging hotspots (Leu175, Tyr41/176, Phe38, Arg34/169), plus RMSD/RMSF/interface H-bonds. Directly answers 'how does MMPBSA perform for PPI'."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Answer key expects very large GBSA ΔG (-50 to -100 kcal/mol without entropy), noisy but hotspot-capable. Agent: ΔG_GB -58.74 (SEM 0.55), ΔG_PB -61.30 (SEM 0.73) from FINAL_RESULTS.dat -- squarely in the -50..-100 window; hotspots identified via decomposition. Source paper (Stauber et al. PNAS 2006, PMID 16477002, read via mcp__pubmed get_abstract) is the crystal-structure paper: confirms IL-2Rα forms the largest, charge-charge-dominated interface with high-affinity/fast association -- matching agent's -762 EEL/+799 desolvation signature and the over-binding vs experimental ~-11 kcal/mol. Paper is structural (no computed MMPBSA ΔG), so key's expected is a methodological range, confirmed consistent."}
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

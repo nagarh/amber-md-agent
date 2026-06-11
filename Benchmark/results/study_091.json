@@ -1,0 +1,16 @@
+{
+  "study_id": "091",
+  "orig_id": "087",
+  "title": "Water permeation PMF through DPPC bilayer (umbrella sampling)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "packmol-memgen DPPC bilayer (66 lipids, 3380 TIP3P, 8 K+/8 Cl-, 18736 atoms; system/bilayer_only.pdb). tLEaP 'Errors = 0; Warnings = 132' (system/leap.log, LIPID21 linker warnings normal). Equilibrated equil.out density 0.9918-1.0016 g/cc, area/lipid 64.07 A^2 vs exp DPPC fluid ~63 A^2. No residues dropped."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md has 4-tier FF table: LIPID21 (T1, PMID 35113553 + manual p.50), TIP3P method-mandated pairing, T=325K justified above DPPC Tm~314K with lit (PMID 42077900). RAG-confirmed fxyz=0,0,1 z-CV (manual p.621). PLAN 'APPROVED 2026-06-10' before any sbatch. No banned hardcoding phrases; lit review present (4 refs)."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min0_cpu+min2+heat+NPT equil all PASS (equil.out 700ps stable, RESTRAINT=0, no NaN). 25 umbrella windows each ran warmup+preequil(0.3ns)+prod(1ns); win_12/prod.out shows clean Final Performance (227 ns/day). Documented failures (oversized box, GPU kNLSkinTest) diagnosed and recovered per PROCESS_REPORT."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct method (umbrella sampling along z relative to bilayer center) + correct observable (PMF vs z) exactly as prompt asks. CV verified real: cv_dz.npy windows localized at targets (win_00 mean=-0.01, win_06=6.21, win_24=23.98, sigma~0.35). MBAR (pymbar 4.x) + WHAM both run; overlap (2.8 sigma, mean overlap 0.12) and 20/50% discard convergence (max dev 0.41 kcal/mol) reported."},
+    "C5": {"credit": 0.95, "applicable": true, "note": "Agent central barrier W(center)-W(bulk)=6.49 kcal/mol (~27 kJ/mol). Source Marrink & Berendsen 1996 JPCB 100:16729 (DOI 10.1021/jp952956f) reports max excess free-energy barrier ~26 kJ/mol (~6.2 kcal/mol) for water in DPPC center (confirmed via web; pubmed lacks pre-2000 paper). Answer key '~6 kcal/mol, high at center, symmetric' confirmed. Minor: agent PMF peak (7.5) sits ~5 A off-center with slight central dip vs paper max-at-center, but headline barrier magnitude is within tolerance."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

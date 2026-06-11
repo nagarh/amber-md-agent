@@ -1,0 +1,16 @@
+{
+  "study_id": "029",
+  "orig_id": "088",
+  "title": "GaMD dual-boost: benzene in T4 lysozyme L99A cavity (3DMV)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "3DMV (apo, 1.65 A) fetched/cleaned; benzene transplanted from 181L by Ca Kabsch fit (162 Ca, RMSD 0.291 A, system/benzene_in_3dmv_frame.pdb); benzene parametrized GAFF2/AM1-BCC (charges sum 0, frcmod no ATTN); tleap built system.prmtop with 42610 atoms, 9 Cl- neutralizing, net charge 0, density 1.019 g/cc. His31->HIP justified via His31-Asp70 buried ion pair. No residues dropped (res 1-164). First build (37173) failed on retained additives, fixed by ATOM-only strip."},
+    "C2": {"credit": 0.9, "applicable": true, "note": "PLAN.md uses full 4-tier protocol with no hardcoded defaults: ff19SB (Tier2), OPC (Tier2), GAFF2 (Tier2), AM1-BCC (Tier3), 12 A pad (Tier3), all with manual-validation notes. GaMD params RAG-grounded to Amber24 sec24.3 (igamd=3 dual-boost, sigma0P=sigma0D=6.0, ntave/ntcmd/nteb multiples). Minor: chose bound starting pose rather than the paper's solvent-start binding setup, but reasoning (200 ns insufficient for spontaneous binding; paper needed 800ns x5) is sound and documented. PLAN/PROCESS/STUDY reports complete."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1->min2->heat(0-300K)->NPT equil (rho=1.021, 299.7K)->GaMD-equil(1.2ns)->200 ns production complete: gamd_prod1.out reaches 101900 ps, gamd_prod2.out reaches 201900 ps (200 ns prod). Averages: density 1.0189 g/cc, 300.01 K, Etot -107736; zero NaN hits in both prod outputs. Boost leveled off, GAMD term ~8.0 kcal/mol stable."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct observables for the question: benzene-cavity centroid distance time series (20001 frames), SASA (mean 23.4 A2), heavy-atom RMSD, wall contacts, protein Ca RMSD/RMSF, plus GaMD 2nd-order cumulant reweighting (reweight.py) yielding pmf_benzene_cavity.dat with sigma_V=3.02<10 validity check. This matches the answer key deliverable (reweighted PMF of benzene distance from cavity)."},
+    "C5": {"credit": 0.9, "applicable": true, "note": "Paper (Miao/Feher/McCammon JCTC 2015, PMID 26300708, full text read): T4-lysozyme run as 5x800 ns; complete benzene BINDING observed in only 1/5, and once bound 'benzene remained tightly bound...even when extended to 1800 ns' (no unbinding). Agent started bound and observed NO exit in 200 ns (dist max 3.61 A, single PMF well at 1.75 A, no unbound basin, SASA buried), with transient cavity breathing (SASA up to 60 A2, 15.9% frames>30 A2) and correct caveat that egress/binding needs LiGaMD or us-scale sampling. This negative result is exactly the expected legitimate outcome and is fully consistent with the paper's 'benzene remains tightly bound' finding. Minor deduction: did not attempt the solvent-start direction the paper actually demonstrated (binding), so the paper's positive demo was not reproduced, though infeasible at 200 ns."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

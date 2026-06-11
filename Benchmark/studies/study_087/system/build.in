@@ -1,0 +1,19 @@
+source leaprc.protein.ff19SB
+source leaprc.lipid21
+source leaprc.water.tip3p
+
+mol = loadpdb bilayer_prot.pdb
+
+# packmol-memgen output has no CRYST1; set periodic box from packmol-memgen.log
+# x_len=y_len=118.568, z_len=93.376 (the lipid lateral periodicity + bilayer+water box).
+# NOT the raw coordinate range (waters legitimately extend past the box and wrap via PBC).
+set mol box { 118.568 118.568 93.376 }
+
+# Protonating 3x ASP->ASH and 3x GLU->GLH added +6 vs the packmol-neutralized standard
+# protein; neutralize with Cl- (addIons places them in solvent at favorable sites).
+charge mol
+addIons mol Cl- 0
+charge mol
+saveAmberParm mol ompf_membrane.prmtop ompf_membrane.inpcrd
+savepdb mol ompf_membrane_leap.pdb
+quit

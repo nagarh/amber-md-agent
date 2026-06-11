@@ -1,0 +1,16 @@
+{
+  "study_id": "070",
+  "orig_id": "021",
+  "title": "EGFR L858R activating mutation (WT 1M17 vs L858R 2ITT)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "Both PDBs fetched/cleaned (raw_pdbs/1M17.pdb, 2ITT.pdb), apo (ligands AQ4/AEE removed), ACE/NME capped. ff19SB/OPC tLEaP built sane topologies: system/{1M17,2ITT}.prmtop, solvated 83,318 / 73,012 atoms, net -7 neutralized with Na+ + 0.15 M NaCl. 2ITT distal activation-loop gap (canonical 867-875, pLDDT 47.5) AlphaFold-grafted and junction closed by restrained min to 1.333 Angstrom (validate_loop_junction PASS); L858R/R858 is in resolved crystal region (not modeled). No residues silently dropped."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives full tier-protocol justification: ff19SB + OPC + Joung-Cheatham ions each cited to Behn 2025 (PMID:40799909, EGFR WT/L858R ff19SB) AND Amber24 manual pages (§3.1.1 p.34, §3 p.34, §3.7 p.55); box 12 Angstrom and 50 ns sim length justified (50 ns verbatim from prompt, caveated vs 5x100 ns precedent). No banned hardcoded-default phrases. RAG-first, Step 2b/2c literature review populated, PLAN approval gate recorded (APPROVED 2026-06-09)."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil/equil2/production all present and finished. Both prod runs reached NSTEP=25000000 (50 ns) in prod.mdout AVERAGES block; density 1.0207 (1M17) / 1.0237 (2ITT) g/cc, TEMP 310.04/310.02 K, no NaN/blow-up. Full 5 GB / 4.4 GB prod.nc trajectories (5000 frames each) written; mdinfo shows runs to completion."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Analysis matches the prompt exactly: activation-loop backbone RMSD + per-residue RMSF, alphaC-helix backbone RMSD + RMSF, and catalytic K-E salt-bridge distance (K721/745 NZ - E738/762 CD) as the alphaC-in/out order parameter. cpptraj masks correct (analysis_2ITT.in: :160-179 A-loop, :62-72 alphaC, :50@NZ :67@CD). Stats computed on equilibrated last-half (frames 2500-5000); independently reproduced (KE last-half 3.76 WT / 3.62 L858R; A-loop RMSD 1.57 / 2.34 Angstrom match report)."},
+    "C5": {"credit": 0.8, "applicable": true, "note": "Paper (Yun et al. 2007, PMID:17349580, PMC1939942) confirms key: L858R activates by DESTABILIZING the inactive conformation (Leu858 cannot adopt inactive helical A-loop conformation), shifting equilibrium to active; active-state crystals superimpose at 0.33 Angstrom RMSD. Agent's result correctly captures the direction: L858R activation loop markedly more mobile (RMSD 2.34 vs 1.57 Angstrom; RMSF 1.43 vs 1.26), alphaC samples wider active-like range (RMSF 1.55 vs 0.89), K-E salt bridge maintained/slightly tighter (3.62 vs 3.76 Angstrom) -> active-conformation bias. Direction matches expected (A-loop opens/more dynamic in L858R, alphaC-in, WT more flexible between states). Not full credit: this is a qualitative mechanism (no single quantitative literature observable), apo 50 ns from two different crystal forms cannot directly observe the inactive->active transition the paper invokes, and the agent honestly caveats this confound."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

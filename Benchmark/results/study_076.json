@@ -1,0 +1,16 @@
+{
+  "study_id": "076",
+  "orig_id": "090",
+  "title": "T-REMD for alanine dipeptide",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "Aladip built from tLEaP sequence {ACE ALA NME} (correct: no experimental PDB/capping/protonation to resolve). ff14SB+TIP3P, 1437 waters, trunc-octahedron, net charge 0, no ions. Initial 10A box hit pmemd.cuda 'small box <=2 cells' trap (job 38214), correctly rebuilt at 14A (job 38253): tLEaP errors=0, box vector 45.6A, topology sane. system/aladip.prmtop + tleap.out confirm."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "Strong tier-justified methodology in PLAN.md: ff14SB (T2 manual p.36 backbone reparam to balance PPII/beta/aL/aR + T1 lit) vs explicit ff19SB/OPC rejection; geometric T-ladder 300-600K ratio 1.10409 (Patriksson 2008, manual p.528); NVT mandatory for explicit-solvent REMD (manual p.528); even replica count; fresh per-replica velocities (irest=0/ntx=1/tempi). Banned-phrase check done, lit precedent cited (Sugita&Okamoto, Appadurai), PLAN approval gate present. No hardcoded defaults."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat(298.6K)/equil-NPT(297.9K, density 0.986 g/cc) all PASS; all 8 T-REMD replicas reached NSTEP=10M (10 ns/rep, 80 ns aggregate, job 38262), no blow-up/NaN. rem.log has full 20000 exchange blocks. Stable throughout."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct analysis method: cpptraj multidihedral phi/psi resrange 2 + 2D Ramachandran on 300K replica. Independently verified the agent's numbers: rem.log shows 8/160000 attempts changed temp0 (=0.005% acceptance), rep8 held the 300K slot for 19999/20000 blocks; phipsi_300K.dat has only 6/20000 frames with phi>0 (aL empty) while phipsi_600K.dat has 1729/20000 (8.6%, clear aL basin). Diagnosis is methodologically correct: dead exchanges -> 300K is a single 10ns canonical trajectory; barrier proven crossable at 600K; REST2 prescribed as fix. Temperature-mixing test is exactly the right diagnostic."},
+    "C5": {"credit": 0.7, "applicable": true, "note": "Answer key (orig 090) expects: full Ramachandran sampling incl aL, acceptance ~20-30% FOR WELL-SPACED TEMPERATURES, all basins at 300K. Source: Sugita & Okamoto 1999 CPL 314:141 (confirmed via WebSearch; foundational T-REMD paper, tested Met-enkephalin, establishes acceptance requires overlapping neighbor PE distributions and falls with system DOF). Agent ran the literal prompt (8 reps / 300-600K), which is genuinely too coarse for explicit solvent -> ~0% acceptance, so aL NOT sampled at 300K. Per JUDGE directive, methodology+diagnosis judged against the key's expectation: the agent's diagnosis is correct and matches the key's explicit 'well-spaced temperatures' caveat (this ladder is not well-spaced for explicit solvent), and it rigorously proved aL is crossable at 600K and prescribed REST2. Substantial credit. Not full because the key's terminal observable (aL populated at 300K) was not delivered and the agent did not re-run with a finer ladder/REST2 to demonstrate it."}
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

@@ -1,0 +1,16 @@
+{
+  "study_id": "040",
+  "orig_id": "013",
+  "title": "Concanavalin A + methyl alpha-D-mannoside (5CNA)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "5CNA fetched (raw_pdbs/5CNA.pdb), chain A monomer extracted; sugar built via GLYCAM sequence {OME 0MA} and Kabsch-aligned to crystal pocket (ring RMSD 0.54 A, system/align_sugar.py); Ca2+/Mn2+ placed at crystal positions (metals_A.pdb). tLEaP succeeded -> system.prmtop/inpcrd/pdb. 38,203 atoms, TIP3P 12 A box, neutralized + ~150 mM NaCl (33 Na/31 Cl), net charge 0 (build_system.out). Topology sane, no residues silently dropped."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives full tier-protocol justification: ff14SB + GLYCAM_06j-1 (Musleh 2024 PMID:39413277, manual-validated leaprc), TIP3P, Li/Merz 12-6 ions with explicit documented 12-6-4->12-6 GPU trade-off (lj1264 unsupported on pmemd.cuda, manual p.456), 12 A padding justified vs cutoff, 20 ns per user. Protonation carefully reasoned with metal-stripping propka artifact corrections (His24->HID coordinating Mn NE2). RAG-first, lit review (Step 2b/2c), no banned hardcoded-default phrases."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil(burst density)/equil2/prod all present and finished. Production reached full nstlim=10,000,000 (NSTEP=10000000, 20 ns), density 1.0238, TEMP 297.97 K, Etot stable, no NaN/blow-up (prod.mdout AVERAGES). check_convergence: BB-RMSD drift 0.46 A, sugar drift 0.34 A over last 10 ns."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Analysis directly answers both prompt questions: protein BB-RMSD vs crystal (1.31 A), sugar in-frame RMSD (1.37 A) + COM distance + H-bond occupancies to canonical site (Asp208 99.1%, Asn14 49.4%, Arg228 43.2%, Tyr/Leu); metal coordination time series for BOTH Ca2+ (Tyr12,Asp10,Asn14,Asp19) and Mn2+ (Glu8,Asp10,Asp19,His24) from coord_Ca.dat/coord_Mn.dat; RMSF, convergence. Correct cpptraj methodology."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Paper Naismith & Field 1996 PMID:8557713 confirms monosaccharide site (1,6-mannose) + metal-dependent binding. Answer key expects: mannose stays bound, Ca/Mn shells stable, sugar H-bonds to Asp208/Asn14/Arg228. Agent recovers all: sugar stays full 20 ns (in-frame RMSD 1.37 A, Asp208-O4 H-bond 99.1%, Asn14 49.4%, Arg228 43.2%); both metals 100% coordinated every frame. Full agreement."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

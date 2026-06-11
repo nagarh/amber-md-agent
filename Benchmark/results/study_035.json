@@ -1,0 +1,16 @@
+{
+  "study_id": "035",
+  "orig_id": "075",
+  "title": "Hydration free energy of N-methylacetamide (NMA) by TI",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "NMA built RDKit ETKDG/MMFF -> SDF with bond orders, antechamber GAFF2 + AM1-BCC (system/nma.{sdf,mol2,frcmod}, sqm.out). tLEaP solvated TIP3P truncated octahedron, neutral (no ions), ~1289 waters (system/nma_solv.prmtop, leap.log). NPT equilibrated to density 0.985 g/cm3, 298.25 K (equil/npt.out AVERAGES). Topology sane, no dropped residues."},
+    "C2": {"credit": 0.95, "applicable": true, "note": "PLAN.md present with per-parameter tier-justified FF table: GAFF2 (Tier1, FreeSolv std, PMID 40068154), AM1-BCC charges, TIP3P (Tier1, FreeSolv ref), 15A trunc-oct padding (Tier2), 9A+PME, Langevin 298.15K. No hardcoded defaults. Deviation from PLAN (two-leg decharge+vdW -> one-step softcore decouple) documented honestly with root-cause in STUDY_REPORT sec6 / PROCESS_REPORT. Minor: RAG-first usage not strongly evidenced."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min/heat/NPT all finished; 14 TI windows each ran full 1M steps (1 ns), 4.1MB outputs with complete timing footers (ti_0.0.out NonSetup 265s, 2006 DV/DL records). One-step decouple numerically stable (no blow-up vs the diverging linear-decharge attempt). Density 0.985, T 298.25 K stable."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "TI: parse DV/DL, discard first 20%, trapezoid-integrate <dV/dl> over 14 lambda (dense at low-lambda electrostatic peak), DG_hyd = -INT (compute_dG_decouple.py). decouple-mode timask2='' correctly keeps intramolecular terms common so gas/vacuum leg is identically zero. Correct method + observable (absolute hydration FE)."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Calculated DG_hyd = -10.31 +/- 0.07 kcal/mol (results.txt) vs experimental -10.1 kcal/mol; error -0.21 kcal/mol, well within ~1 kcal/mol GAFF2/AM1-BCC FreeSolv tolerance. Paper (PMID 7213619, Wolfenden et al. Biochemistry 1981, hydration potentials) and FreeSolv confirm NMA ~ -10 kcal/mol, electrostatics-dominated. Answer key value confirmed."}
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

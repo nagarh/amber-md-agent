@@ -1,0 +1,36 @@
+{
+  "study_id": "085",
+  "orig_id": "098",
+  "title": "Staphylococcal nuclease (Delta+PHS, 3BDC) pKa values via GB pH-REMD cpHMD",
+  "checkpoints": {
+    "C1": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "PDB 3BDC fetched + cleaned (system/clean.pdb, cphmd_ready.pdb, 1033 protein atoms); pdTp (THP) + Ca2+ stripped with justification; altloc A kept; no internal chain break (43->50 is renumbering). tLEaP succeeded (system/tleap.log + leap.log, Errors=0), prmtop/inpcrd built (snase.prmtop 938 KB, snase.inpcrd). cpinutil built valid cpin with 19 titrating residues (6 AS4, 11 GL4, 2 HIP); Lys/Tyr correctly excluded. Topology sane."
+    },
+    "C2": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "PLAN.md gives full tier-protocol justification: ff14SB, igb=2, saltcon=0.1, temp0=300, nrespa=1, ntc/ntf pinned by cpin reference-energy compatibility (Amber24 manual §26.3.1 p.583 via RAG, plus PMID 28921104 lit precedent). pH-REMD production justified by manual §26.6 p.591. No banned/hardcoded-default phrases. 5-PMID literature review (Step 2b/2c), method-best-practices table, PLAN approval gate present and APPROVED."
+    },
+    "C3": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "min1/min2/heat/equil all PASS (logs 38474-38477). pH-REMD prod (8 replicas, -rem 4) all reached NSTEP=7,500,000, exit code 0 (logs/phremd_085_38478.out), 506 ns/day, 75000 exchanges. mdinfo.rep.000 shows clean timing, no NaN/blowup. Fold intact: Rgyr 13.7-14.9 A (native ~14), backbone RMSD ~2.5 A (mixes all pH). 8 cpout files ~55 MB each present."
+    },
+    "C4": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Correct cpHMD-pKa analysis: cphstats --fix-remd to reassemble 8 per-pH ensembles (manual §26.7), calcpka + populations per pH (calcpka_full_*.dat, pop_*.dat), Hill fit of fraction-protonated vs pH per residue (hill_fit.py -> pka_results.json), transition-count convergence diagnostic, MAE/RMSE vs experiment, per-residue table in PDB numbering, scatter + titration-curve plots. Right method and observables for a pKa-prediction prompt; convergence honestly diagnosed (Asp21 zero transitions above midpoint)."
+    },
+    "C5": {
+      "credit": 0.4,
+      "applicable": true,
+      "note": "Paper (PMID 19533744) confirms expected pattern: 14/20 Asp/Glu near-normal (depressed <1.1 units), 6 shifted >1.5 units, Asp21 unusually high pKa ~6.5, continuum/static methods over-depress the perturbed sites. Agent reproduced the SURFACE pattern well (MAE 0.75 / RMSE 0.99 for 17 well-determined residues, stats in pka_results.json; His8 5.64 vs 5.5) but FAILED the defining literature result: Asp21 predicted <1.5 vs experimental 6.5 (~5-unit under-prediction, zero transitions), Asp40/Asp19/Glu135 off >1.5, His121 off +1.7. The benchmark's central point is the perturbed buried carboxylates (esp. Asp21 6.5) — these were not reproduced. GB limitation correctly characterized and honestly reported, but the headline quantitative target was missed; partial credit for the surface/His agreement."
+    }
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

@@ -1,0 +1,36 @@
+{
+  "study_id": "059",
+  "orig_id": "023",
+  "title": "Antibiotic resistance: KPC-2 beta-lactamase (apo MD, 50 ns)",
+  "checkpoints": {
+    "C1": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "3DW0 fetched (raw_pdbs/3DW0.pdb), chain A cleaned, ACE/NME capped (signal peptide 1-29 absent), disulfide CYX69-CYS238 handled. system/tleap.log: 'Total unperturbed charge: 0.000000', 'Exiting LEaP: Errors = 0; Warnings = 0'. 1983 protein atoms + 1962 H added; solvated truncated octahedron 12 A pad, 12677 OPC waters, 34 Na/34 Cl, 54449 total atoms, net charge 0. No residues silently dropped (gaps 57->59/252->254 confirmed renumbering artifacts, backbone continuous)."
+    },
+    "C2": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "PLAN.md justifies every parameter via tier protocol: ff19SB (Tier2 manual p.34 + lit), OPC water (manual p.53, recommended over TIP3P with ff19SB), Li-Merz 12-6 OPC ions (p.54), 12 A octahedron padding (>cut+buffer), 50 ns (user-specified, caveated). Protonation from propka3 with per-residue rationale (Glu166 deprotonated pKa4.3, Lys73 protonated, His/Asp overrides). Lit precedent table with PMIDs (Avery 2022 35626612, Biswal 2023, etc). PLAN.md has explicit APPROVED gate. No banned hardcoding phrases."
+    },
+    "C3": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "All 6 stages finished: min1/min2/heat/equil(burst)/equil2/prod mdouts each end with wall-time footer. prod.mdout AVERAGES over full 25,000,000 steps (50.8 ns): TEMP 300.02 K, Density 1.0312 g/cc, Etot -143831 kcal/mol, RMS fluctuations small (density fluct 0.0021). No NaN/blow-up; 5000-frame trajectory. Backbone RMSD plateaus mean 1.08 A max 1.55 A."
+    },
+    "C4": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Analysis matches the prompt's question exactly: backbone RMSD (rmsd_backbone.dat), per-residue RMSF (rmsf_byres.dat, omega region res135-150 prmtop = 164-179 Ambler, RMSF 0.36-1.02 A), omega-loop RMSD (rmsd_omega.dat mean 0.98 A), active-site distances Ser70-Lys73-Glu166 (dist_*.dat, prmtop Ser41/Lys44/Glu137), active-site + omega H-bond occupancies (as_hbond_avg.dat, omega_hbond_avg.dat: Glu166-Ser70 OG H-bond 68.8% 2.64 A; Arg164-Asp179 salt bridge 99.98%), radgyr, secondary structure. Correct cpptraj methods and observables for active-site + omega-loop characterization."
+    },
+    "C5": {
+      "credit": 0.92,
+      "applicable": true,
+      "note": "Paper-confirmed (Papp-Wallace 2010, AAC, PMID 19858255, PMC2897288): KPC-2 SXXK motif Ser70/Lys73, Glu166 general base activating catalytic water, omega loop a conserved class A element, broad structural similarity to TEM-1 with nine active-site residues uniquely positioned. Answer key Expected: 'catalytic triad intact; omega loop may differ from TEM-1; Ser70 positioned for nucleophilic attack.' Agent reproduces this: triad maintained (Glu166-Ser70 H-bond 69%, Lys73-Glu166 tether 3.7+-0.2 A), omega loop ordered/rigid (RMSF <=1.0 A, Arg164-Asp179 anchor), Ser70 in catalytically competent geometry. TEM-1 comparison is literature-based (no co-simulation), which is appropriate for an apo single-system run; this is the expected qualitative match. Minor deduction: TEM-1 contrast is contextual rather than directly computed."
+    }
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

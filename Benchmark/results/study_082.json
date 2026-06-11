@@ -1,0 +1,16 @@
+{
+  "study_id": "082",
+  "orig_id": "030",
+  "title": "Carbonic anhydrase II (1CA2) zinc catalysis — coordination stability",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1CA2 fetched + cleaned; termini capped ACE@3/NME@261 (Ser2/His3/Lys261 unresolved); gap@126 correctly identified as numbering-only (C125-N127=1.75A). ZAFF Center 6 (Zn-HHHO) built: His94->HD4, His96->HD5, His119->HE2, ZN->ZN6, HOH263->WT1. tLEaP Errors=0/Warns=0 (PROCESS_REPORT job 38420); system.prmtop (5.1MB) + inpcrd present; 25,089 atoms, net charge ~0, ~7040 TIP3P waters; Zn-N5/N6/N7/O1 bonds verified in prmtop (req 1.978-2.112 A)."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md has full tier-protocol FF table with PMIDs + Amber24 manual pages: ff14SB (Maier PMID:26574453, ZAFF-era compatible), TIP3P (ZAFF WT1 is TIP3P), Joung/Cheatham ions, ZAFF Center 6 (Peters PMID:20856692). Explicit ZAFF-vs-nonbonded(12-6/12-6-4) justification tied to prompt's 'maintain coordination' requirement; 12-6-4 GPU restriction noted. Step 2b/2c literature search done (Rai 2022 PMID:36092600, Li&Merz PMID:28045509). pH/protonation via propka3. PLAN approved before sbatch. No hardcoded defaults."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil(burst)/equil2/prod all PASS. Prod completed 50,000,000 steps (mdout Final Performance Info present, 4.61h wall, 260 ns/day). AVERAGES: T=300.0K, density=1.0447 g/cc, Etot=-60818, no NaN. Backbone RMSD drift 0.22A<0.5A converged. SHAKE/ZAFF-water GPU conflict properly diagnosed and fixed (noshakemask=:ZN6,WT1 + dt=1fs)."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Analysis directly targets the prompt question: Zn-ligand distances (zn_coord_dist.dat, 5000 frames: His94/His96/His119/Water) + coordination angles (zn_coord_angle.dat) for tetrahedral-geometry check, plus backbone/heavy RMSD, RMSF, Rg, His64 chi1. cpptraj masks corrected after index-offset bug. Correct observables for a coordination-maintenance study."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Paper-confirmed (Hakansson 1992 PMID:1433293, 1CA2 structure): catalytic Zn coordinated by His94/His96/His119 + water/OH in tetrahedral geometry. Answer key Expected = tetrahedral Zn maintained (3 His + water/OH), CN=4 throughout. Agent result: all 4 Zn-ligand distances 1.90-1.98 A (std ~0.05) over full 50 ns, no dissociation; angles 99-111 deg (distorted tetrahedral, ideal 109.5); last-25ns means = full-run means. CN=4 maintained = matches key and paper. Bonded model enforces this by construction (the prompt-appropriate choice, acknowledged in caveats), so agreement is genuine and expected."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

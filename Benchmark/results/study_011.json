@@ -1,0 +1,16 @@
+{
+  "study_id": "011",
+  "orig_id": "074",
+  "title": "Relative binding FE: thrombin inhibitors (methyl->ethyl, 2ZFF)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "2ZFF fetched (raw_pdbs/2ZFF.pdb), cleaned + propka3 protonated (system/protein_clean.pka, protein_protonated.pdb), ligand parametrized GAFF2/AM1-BCC (lig_methyl/ethyl.{mol2,frcmod}), single-topology pair via parmed tiMerge. tLEaP succeeded clean: build_complex.log + leap.log 'Errors=0'. Sane topology: complex 40,030 atoms, solvent 7,794 atoms; box ~77x78x81 A; 4 disulfides + capped autolysis-loop/gap breaks built as N/C variants. timask1='@4562'(1 atom), timask2='@4563-4566'(Ce+3H) correct."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives full tier-justified table: ff14SB (Tier1/2, Lee/York GTI RBFE validation PMID 31260606), TIP3P, GAFF2+AM1-BCC, Joung-Cheatham ions, 12 A pad, 1 ns/window each justified - no hardcoded defaults. RAG-first cited (Amber24 sec25.1 GTI/tiMerge), literature review (Step 2b), PLAN.md present as approval gate. Protonation reasoned per-residue (His57 HID etc)."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "All 22 windows (11 lambda x 2 legs) min/heat/equil/prod finished - every prod.out has wallclock/NSTEP=1,000,000 (1 ns at dt=0.001). No NaN in any prod.out. Stable: complex lam0.5 density 1.058 g/cc, TEMP 300.0 K. 0/22 failed."},
+    "C4": {"credit": 0.95, "applicable": true, "note": "Correct method for RBFE-by-TI: trapezoidal integration of <dV/dl> over 11 lambda per leg, ddG_bind = dG_complex - dG_solvent (analysis/ti_results.txt: dG_cplx +3.73, dG_solv +2.10, ddG +1.63). Block-SEM errors, first/second-half convergence split (drift 0.19 < error 0.21). Minor: single replicate, trapezoid only (no MBAR cross-check), 1 ns/window - acknowledged as screening-grade."},
+    "C5": {"credit": 0.6, "applicable": true, "note": "ddG_bind = +1.63 +/- 0.21 kcal/mol. Source paper (Wang et al. JACS 2015, PMID 25625324, FEP+ relative binding potency incl. thrombin) confirmed via abstract; key's bar = softcore TI + 'ddG within 1-2 kcal/mol of experimental difference'. Magnitude (~1.6) sits in the 1-2 kcal/mol band and method matches expected, but agent modeled a hypothetical para-methyl->ethyl pair on the 2ZFF benzyl (not the actual paper compound pair) and honestly found no matched experimental ddG (paper not open-access). Reasonable but not experimentally verifiable -> partial credit."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

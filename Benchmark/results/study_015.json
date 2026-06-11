@@ -1,0 +1,16 @@
+{
+  "study_id": "015",
+  "orig_id": "073",
+  "title": "Methanol hydration free energy (TI)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "Methanol built from SMILES via RDKit, parametrized GAFF/AM1-BCC (run_antechamber.sh: antechamber -c bcc -at gaff -nc 0; parmchk2 -s gaff). Solvated TIP3P box; tleap.out 'Errors=0; Warnings=0'. prmtop POINTERS = 3732 atoms (6 solute + 1242 WAT), matching STUDY_REPORT. No residues dropped, box ok."},
+    "C2": {"credit": 0.9, "applicable": true, "note": "PLAN.md gives per-parameter tier justification: GAFF chosen Tier2 (manual p311, gaff2/bcc explicitly not recommended) + Tier1 FreeSolv; TIP3P Tier1 (matches -5.1 benchmark); 15 Aa padding + 1ns/window with rationale; no hardcoded defaults. RAG-validated leaprc.gaff/tip3p. Approval gate present. Minor: STUDY_REPORT caveat mislabels FF as 'GAFF2' though actual is GAFF; single-step combined vdW+ele decoupling (vs 2-leg decharge/vdW) used but explicitly justified via GTI softcore-ele + full-range integration."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil all present and finished; equil density 0.975 g/cc, T 297.83 K (equil.out AVERAGES), no blow-up. All 15 TI windows completed (TIMINGS block present in all 15 ti.out). dV/dL profile smooth and endpoint-finite, no NaN."},
+    "C4": {"credit": 0.9, "applicable": true, "note": "compute_dG.py parses DV/DL from each window (excludes AVERAGES block), discards first 20% equilibration, block-SEM (10 blocks), np.trapezoid over 15-lambda grid, dG_hyd = -integral. Correct TI estimator and observable for the question. dvdl_vs_lambda.dat shows physically expected shape. Minor: TI-only (no MBAR cross-check), no explicit standard-state/finite-size correction (both acknowledged)."},
+    "C5": {"credit": 0.5, "applicable": true, "note": "Agent ΔG_hyd = -3.66 +/- 0.06 kcal/mol vs experimental -5.1 (error +1.44). Source paper Shirts & Pande JCP 122:134508 (PMID:15847482, doi:10.1063/1.1877132) confirms methanol/serine-analog experimental hydration FE ~-5.1 kcal/mol and good-agreement target for fixed-charge models. Answer key expected band -4.5 to -5.5; agent value lands ~0.84 outside that band. Correct sign and order of magnitude, and the under-prediction is the documented GAFF/AM1-BCC alcohol under-polarization (consistent with real FreeSolv GAFF methanol ~-3.2), but it misses the stated agreement window -> partial credit."}
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

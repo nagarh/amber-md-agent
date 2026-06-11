@@ -1,0 +1,142 @@
+
+CPPTRAJ: Trajectory Analysis. V6.24.0 (AmberTools)
+    ___  ___  ___  ___
+     | \/ | \/ | \/ | 
+    _|_/\_|_/\_|_/\_|_
+
+| Date/time: 06/10/26 15:31:39
+| Available memory: 436.577 GB
+
+INPUT: Reading input from 'analysis_struct.in'
+  [parm /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_098/system/system.prmtop]
+	Reading '/data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_098/system/system.prmtop' as Amber Topology
+	Radius Set: modified Bondi radii (mbondi)
+  [trajin /data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_098/simulations/prod/prod.nc]
+	Reading '/data/hn533621/Portfolio/amber-md-agent-general/Benchmark/studies/study_098/simulations/prod/prod.nc' as Amber NetCDF
+  [autoimage]
+    AUTOIMAGE: To box center based on center of mass, anchor is first molecule.
+  [rms first :1-72@CA out rmsd_core_CA.dat mass]
+    RMSD: (:1-72@CA), reference is first frame (:1-72@CA), mass-weighted.
+	Best-fit RMSD will be calculated, coords will be rotated and translated.
+  [rms reffirst :1-76@CA out rmsd_allCA.dat mass]
+    RMSD: (:1-76@CA), reference is first frame (:1-76@CA), mass-weighted.
+	Best-fit RMSD will be calculated, coords will be rotated and translated.
+  [atomicfluct out rmsf_CA.dat :1-76@CA byres]
+    ATOMICFLUCT: calculating atomic positional fluctuations over residues.
+	Output to file rmsf_CA.dat
+	Atom mask: [:1-76@CA]
+	Start: 1  Stop: Final frame
+  [atomicfluct out rmsf_NH.dat :1-76@N byres]
+    ATOMICFLUCT: calculating atomic positional fluctuations over residues.
+	Output to file rmsf_NH.dat
+	Atom mask: [:1-76@N]
+	Start: 1  Stop: Final frame
+  [radgyr out rgyr.dat :1-76 mass]
+    RADGYR: Calculating for atoms in mask :1-76 using mass weighting.
+  [distance tail_dist :72@CA :76@CA out tail_dist.dat]
+    DISTANCE: :72@CA to :76@CA, center of mass.
+  [distance tail_core :2-72@CA :76@CA out tail_to_core.dat]
+    DISTANCE: :2-72@CA to :76@CA, center of mass.
+  [rms first :1-76@CA]
+    RMSD: (:1-76@CA), reference is first frame (:1-76@CA).
+	Best-fit RMSD will be calculated, coords will be rotated and translated.
+  [average avg_struct.pdb pdb]
+	Writing 'avg_struct.pdb' as PDB
+    AVERAGE: Averaging over coordinates in mask [*]
+	Start: 1  Stop: Final frame
+	Writing averaged coords to file 'avg_struct.pdb'
+  [run]
+---------- RUN BEGIN -------------------------------------------------
+
+PARAMETER FILES (1 total):
+ 0: system.prmtop, 19777 atoms, 4732 res, box: Truncated octahedron, 4657 mol, 4630 solvent
+
+INPUT TRAJECTORIES (1 total):
+ 0: 'prod.nc' is a NetCDF (NetCDF3) AMBER trajectory with coordinates, time, box, Parm system.prmtop (Truncated octahedron box) (reading 10000 of 10000)
+  Coordinate processing will occur on 10000 frames.
+
+BEGIN TRAJECTORY PROCESSING:
+.....................................................
+ACTION SETUP FOR PARM 'system.prmtop' (10 actions):
+  0: [autoimage]
+	Original box is truncated octahedron, turning on 'familiar'.
+	Using first molecule as anchor.
+	4656 molecules are mobile.
+  1: [rms first :1-72@CA out rmsd_core_CA.dat mass]
+	Target mask: [:1-72@CA](72)
+	Reference topology: system.prmtop
+	Reference mask: [:1-72@CA](72)
+  2: [rms reffirst :1-76@CA out rmsd_allCA.dat mass]
+	Target mask: [:1-76@CA](76)
+	Reference topology: system.prmtop
+	Reference mask: [:1-76@CA](76)
+  3: [atomicfluct out rmsf_CA.dat :1-76@CA byres]
+	Mask [:1-76@CA] corresponds to 76 atoms.
+  4: [atomicfluct out rmsf_NH.dat :1-76@N byres]
+	Mask [:1-76@N] corresponds to 76 atoms.
+  5: [radgyr out rgyr.dat :1-76 mass]
+	:1-76 (1231 atoms).
+  6: [distance tail_dist :72@CA :76@CA out tail_dist.dat]
+	:72@CA (1 atoms) to :76@CA (1 atoms), imaged.
+  7: [distance tail_core :2-72@CA :76@CA out tail_to_core.dat]
+	:2-72@CA (71 atoms) to :76@CA (1 atoms), imaged.
+  8: [rms first :1-76@CA]
+	Target mask: [:1-76@CA](76)
+	Reference topology: system.prmtop
+	Reference mask: [:1-76@CA](76)
+  9: [average avg_struct.pdb pdb]
+	Mask [*] corresponds to 19777 atoms.
+	Averaging over 19777 atoms.
+----- prod.nc (1-10000, 1) -----
+ 0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100% Complete.
+
+Read 10000 frames and processed 10000 frames.
+TIME: Avg. throughput= 1077.1123 frames / second.
+
+ACTION OUTPUT:
+    ATOMICFLUCT: Calculating fluctuations for 10000 sets.
+    ATOMICFLUCT: Calculating fluctuations for 10000 sets.
+    AVERAGE: 10000 frames,Warning: Topology 'system.prmtop' has 4630 extra points
+Warning:   that will not be included in output PDB.
+Warning: To include them, specify 'include_ep'. Otherwise, use output PDB as
+Warning:   topology or create a new topology with 'strip' or 'parmstrip'.
+  'avg_struct.pdb' is a PDB file, Parm system.prmtop: Writing 1 frames (1-Last, 1)
+TIME: Analyses took 0.0000 seconds.
+
+DATASETS (9 total):
+	RMSD_00001 "RMSD_00001" (double, rms), size is 10000 (80.000 kB)
+	reffirst "reffirst" (double, rms), size is 10000 (80.000 kB)
+	Fluct_00003 "AtomicFlx" (X-Y mesh), size is 76 (1.216 kB)
+	Fluct_00004 "AtomicFlx" (X-Y mesh), size is 76 (1.216 kB)
+	RoG_00005 "RoG_00005" (double), size is 10000 (80.000 kB)
+	RoG_00005[Max] "RoG_00005[Max]" (double), size is 10000 (80.000 kB)
+	tail_dist "tail_dist" (double, distance), size is 10000 (80.000 kB)
+	tail_core "tail_core" (double, distance), size is 10000 (80.000 kB)
+	RMSD_00009 "RMSD_00009" (double, rms), size is 10000 (80.000 kB)
+    Total data set memory usage is at least 562.432 kB
+
+DATAFILES (7 total):
+  rmsd_core_CA.dat (Standard Data File):  RMSD_00001
+  rmsd_allCA.dat (Standard Data File):  reffirst
+  rmsf_CA.dat (Standard Data File):  AtomicFlx
+  rmsf_NH.dat (Standard Data File):  AtomicFlx
+  rgyr.dat (Standard Data File):  RoG_00005 RoG_00005[Max]
+  tail_dist.dat (Standard Data File):  tail_dist
+  tail_to_core.dat (Standard Data File):  tail_core
+
+RUN TIMING:
+TIME:		Init               : 0.0000 s (  0.00%)
+TIME:		Trajectory Process : 9.2841 s ( 99.48%)
+TIME:		Action Post        : 0.0213 s (  0.23%)
+TIME:		Analysis           : 0.0000 s (  0.00%)
+TIME:		Data File Write    : 0.0269 s (  0.29%)
+TIME:		Other              : 0.0006 s (  0.00%)
+TIME:	Run Total 9.3329 s
+---------- RUN END ---------------------------------------------------
+TIME: Total execution time: 9.3459 seconds.
+--------------------------------------------------------------------------------
+To cite CPPTRAJ use:
+Daniel R. Roe and Thomas E. Cheatham, III, "PTRAJ and CPPTRAJ: Software for
+  Processing and Analysis of Molecular Dynamics Trajectory Data". J. Chem.
+  Theory Comput., 2013, 9 (7), pp 3084-3095.
+

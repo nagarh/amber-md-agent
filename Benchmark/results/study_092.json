@@ -1,0 +1,16 @@
+{
+  "study_id": "092",
+  "orig_id": "014",
+  "title": "FKBP12 + FK506 (tacrolimus) — pipecolinyl pocket fit",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1FKJ fetched (raw_pdbs/1FKJ.pdb), monomer+FK5 cleaned, FK506 built via build_ligand_from_crystal (57 heavy+69 H, net charge 0, 0 ATTN), GAFF2/AM1-BCC params (fk5.mol2/fk5.frcmod). tLEaP charge-check gave net +0.997 -> 1 Cl-; build.out 17,525 atoms (1663 protein H, 126 FK5, 5245 TIP3P), Errors=0, neutral, truncated-octahedron 10 A pad. Topology sane, no residues dropped."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md follows tier protocol with explicit per-parameter justification: ff14SB (PMID:37867669 + Amber24 p.34), TIP3P (chosen for consistency with TIP3P-derived GAFF2 ligand charges, p.52), Joung/Cheatham ions (p.53), GAFF2/AM1-BCC ligand (p.311), box 10 A octahedron, 30 ns per user prompt. RAG-confirmed FF lines, propka3 run for protonation (all 3 HIS->HID pKa<7), no banned hardcoded defaults. PLAN.md has approval gate. Sound monomer-vs-dimer reasoning."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil(burst)/equil2/prod all PASS. prod.mdout reached NSTEP=15,000,000 (30 ns), TEMP 310.0+/-6.1 K, Density 1.0081 g/cc, Etot -41082 kcal/mol stable, no NaN. Backbone RMSD plateau 0.81 A (drift 0.018), FK5 RMSD 1.26 A (drift 0.064) — stable, no blow-up. 517 ns/day, 3000 frames."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "cpptraj (analysis.in) correct for the question: backbone RMSD, no-fit ligand RMSD (correct for 'stays in pocket'), per-res RMSF, pipecolyl-ring(@N1,C2-C6)->pocket-residue distances, nativecontacts <4A (pipe + whole ligand), H-bonds with correct donormask/acceptormask syntax, pipecolyl Rg. Data files verified: 8.9 pipe native contacts/frame (min 3.40 A), 45.2 whole-ligand contacts, Trp59 closest (5.61 A). Directly answers pocket-fit question."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Paper PMID:1709302 (Van Duyne 1991, 1.7 A FKBP-FK506 crystal) read: 'five hydrogen bonds, a hydrophobic binding pocket lined with conserved aromatic residues, and an unusual carbonyl binding pocket.' Answer key expects FK506 stable, pipecolinyl in hydrophobic pocket (Tyr26,Phe46,Val55,Trp59), effector region exposed. Agent matches: FK506 stable (drift<0.07 A), pipecolyl ring buried/rigid (RMSF 0.44 A, Rg 1.477+/-0.013, contacts to Trp59/Val55/Ile56/Tyr26/Phe46), H-bond network reproduced (Tyr82-OH 88.8%, Ile56 bb 42%, Asp37 67%, Glu54 67% — consistent with the crystal's 5 H-bonds). Conserved aromatic pocket reproduced spontaneously in unrestrained MD."}
+  },
+  "blocked": false,
+  "difficulty": "hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

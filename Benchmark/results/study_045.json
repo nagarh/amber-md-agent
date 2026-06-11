@@ -1,0 +1,16 @@
+{
+  "study_id": "045",
+  "orig_id": "019",
+  "title": "ABL T315I gatekeeper mutation (imatinib resistance)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1IEP fetched (raw_pdbs/1IEP.pdb), chain A cleaned, ACE/NME capped, propka3 run (system/protein_A_raw.pka), imatinib parametrized GAFF2/AM1-BCC (system/ligand.mol2/.frcmod), T315I rebuilt by tLEaP. Both topologies built and sane: wt_complex 43,002 atoms / mut 43,007, 8 Na+ neutralized, TIP3P trunc-oct 12A pad (STUDY_REPORT 2; leap.log). No mid-chain gaps (terminal-only missing)."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives full tier-protocol table for FF=ff14SB / water=TIP3P / ions=Joung-Cheatham / ligand=GAFF2+AM1-BCC, each with PMID precedent (35370687, 40412273) and Amber24 manual page + explicit manual-validation line. Protonation rationale per-His with propka pKa. Box padding 12A justified vs cut. PLAN.md approval gate present (line 131). No hardcoded defaults."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2/heat/equil/equil2/prod all present for both systems. Both prod.mdout report completed 50 ns (WT 3.87h, MUT 3.84h wall, ~310 ns/day); prod.nc ~2.58 GB each. Density ~1.01 g/cc, T 310 K, no blow-up. T315I backbone drift is physical (resistance phenotype), not instability."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct observables for the prompt: backbone+ligand RMSD (pose stability), RMSF, gatekeeper contacts/min-dist, sidechain-imatinib H-bond occupancy, and MMPBSA GB(igb=2)+PB single-trajectory with GB component decomposition. Verified WT H-bond 22.3% Thr315:OG1...STI N4 (wt_gk_hbond_avg.dat) vs none in mutant (mut_gk_hbond_avg.dat); contacts 17->14, min-dist 3.15->3.50A."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Paper-confirmed (Gorre 2001 PMID:11423618 abstract via mcp__pubmed): T315->Ile abolishes 'a critical hydrogen bond with the drug' and confers STI-571/imatinib resistance. Agent reproduces this: gatekeeper H-bond abolished, MMPBSA DELTA TOTAL weaker for mutant by +5.2 kcal/mol GB (WT -52.57 vs MUT -47.39) and +3.3 kcal/mol PB (WT +0.01 vs MUT +3.34), with ligand RMSD rising 1.1->2.3A (displacement). Matches answer key Expected (weaker binding ΔΔG, ligand shift) in sign and mechanism."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

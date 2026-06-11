@@ -1,0 +1,16 @@
+{
+  "study_id": "038",
+  "orig_id": "053",
+  "title": "KcsA potassium channel selectivity (1K4C, POPC bilayer, 50 ns)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1K4C fetched (raw_pdbs/1K4C.pdb); Fab chains A/B + DGA/F09 stripped, homotetramer built by 4 BIOMT operators, termini capped ACE/NME, CYS90 reduced. packmol-memgen POPC bilayer (225 lipids) + 0.15 M KCl + TIP3P. system/leap.log: 'Total unperturbed charge: 0.000000', 78140 input atoms + 3248 added H -> 81388-atom system, box ~93x93x98 A. Filter K+/waters reinserted on-axis (Kabsch RMSD 0.000). tLEaP succeeded, topology sane."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md gives a 4-tier FF table: ff14SB (Tier-1, PMID 41351268/40392847), LIPID21 (Tier-2 Amber24 §3.5 + PMID 35113553), TIP3P (method-mandated by LIPID21), Joung-Cheatham K+/Cl- 0.15 M. Berendsen barostat (barostat=1) justified for lipids, 10 A cutoff, ntp=1, 300 K, Glu71->GLH justified from literature + propka3. Literature review (Step 2b/2c, 6 PMIDs), RAG/Amber24 manual citations, PLAN approval gate followed. No hardcoded defaults."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "Full ladder min1/min2/heat/equil1-3/prod all completed (logs/ + mdout present). prod.mdout reached NSTEP=25000000 (50 ns), 'Total wall time 8.21 hours', final density 1.0345 g/cc at 300.0 K, no NaN/blow-up. Tetramer backbone RMSD plateaus ~1.3 A (drift +0.14), filter RMSD 0.39 A — stable trajectory."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "analysis/filter_occupancy.py defines S1-S4/cavity by TVGYG backbone-carbonyl z-planes + 2.6 A pore cylinder, classifies K+ vs water per frame, computes per-site occupancy, dominant S1-S4 configs, and an alternating (non-adjacent K+) metric — correct method/observables for the prompt. Supplemented by filter RMSD, whole-protein RMSD/RMSF, membrane P-P thickness/APL/density QC. Output site_occupancy.json consistent with report."},
+    "C5": {"credit": 1.0, "applicable": true, "note": "Source paper read via mcp__pubmed get_abstract (PMID 11689936, Zhou et al. Nature 2001): KcsA-Fab 2.0 A resolves K+ sites S1-S4 in the filter, square-antiprism carbonyl coordination mimicking hydration, and the conduction model of alternating ion-water filter occupancy — confirms the answer key. Agent reproduces the alternating K-W-K-W pattern: site_occupancy.json S1 K+ 0.972 / S3 K+ 1.00 vs S2 water 0.993 / S4 water 1.00; K.K. config in 97.2% of frames, 100% alternating; filter conformationally rigid (RMSD 0.39 A), cavity K+ occupied — matches expected: K+ maintained, alternating occupancy, stable filter, clear pathway."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

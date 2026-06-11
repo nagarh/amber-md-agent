@@ -1,0 +1,36 @@
+{
+  "study_id": "010",
+  "orig_id": "079",
+  "title": "Congeneric series ranking — MM-PB(GB)SA of JQ1 / BRD4 BD1 (3MXF)",
+  "checkpoints": {
+    "C1": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "3MXF chain A fetched + cleaned (DMS/EDO/IOD/waters stripped), ACE/NME capped for excised BD1 domain, HID77 from propka. JQ1 parametrized GAFF2/AM1-BCC; agent caught and fixed a real bug where build_ligand_from_crystal returned a spurious +1 cation (26 H) — corrected to neutral C23H25ClN4O2S (25 H) in RDKit preserving crystal coords. tLEaP succeeded: trunc-oct 12 A pad, TIP3P (8599 waters), neutralized + 0.15 M NaCl, 27,889 atoms. Dry mbondi2 topologies built for MMPBSA (system/com,rec,lig.prmtop)."
+    },
+    "C2": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "PLAN.md carries a full tier-protocol table with RAG page citations: ff14SB (Tier 2, justified for GB-radii consistency vs ff19SB/OPC, RAG p.34/883), GAFF2/AM1-BCC ligand, TIP3P, Joung-Cheatham ions 0.15 M, igb=2+mbondi2 (Table 4.1, p.69), istrng=0.15 PB cross-check (p.890); box/temp flagged Tier 3 explicitly. Literature precedent (Hou 2011 PMID21117705, Wang 2019, Filippakopoulos 2010) and MMPBSA best-practices cited. No banned hardcoded-default phrases. Approval gate auto-approved per benchmark mode."
+    },
+    "C3": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Full pipeline finished: min1, min2, heat (0->300K), equil (NPT density 1.017), equil2 (unrestrained 1.016), production. prod.mdout reached NSTEP 5,000,000 (10 ns), final density 1.016 g/cc, T 300.3 K, no NaN/blow-up. Stability confirmed: backbone RMSD ~1.3 A (rmsd_backbone.dat tails at 1.31-1.44), ligand in-pocket RMSD ~1.5 A, ~130 native contacts maintained."
+    },
+    "C4": {
+      "credit": 0.9,
+      "applicable": true,
+      "note": "Correct method+observables for the prompt: single-trajectory MMPBSA.py GB(igb=2,saltcon=0.15)+PB(istrng=0.15) over 113 frames (startframe 101, discards 1 ns equil), per-frame SEM plus block-averaged autocorrelation-aware SEM, full energy decomposition (FINAL_RESULTS_MMPBSA.dat). Directly answers discrimination question by comparing SEM (~0.55 GB / 0.84 PB) to congeneric DDG spacing. RMSD + nativecontacts stability analysis. Minor gap: did not explicitly characterize the conserved acetyl-lysine-mimic H-bond to Asn140 by name (only general KAc-pocket / vdW-dominated discussion); answer key flags Asn140 as the key interaction."
+    },
+    "C5": {
+      "credit": 1.0,
+      "applicable": true,
+      "note": "Matches paper-confirmed expectation (PMID 26798447, Aldeghi 2016 Chem Sci, BRD4 congeneric inhibitor series). Agent concludes MMPBSA CAN discriminate the larger DDG steps (resolvable DDG ~1.6 kcal/mol GB), GB is the better-behaved/faster discriminator than PB, and absolute values are unreliable without entropy (GB -33.0, PB -3.67 vs exp ~-9.8) but the systematic offset cancels for relative ranking — exactly the answer-key claim ('MMPBSA gives relative ranking; GBSA faster and often sufficient'). Correctly notes a single ligand measures precision not ranking accuracy. Answer key is qualitative and confirmed by the source system/paper."
+    }
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

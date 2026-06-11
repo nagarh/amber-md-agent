@@ -1,0 +1,16 @@
+{
+  "study_id": "027",
+  "orig_id": "084",
+  "title": "Alanine dipeptide phi rotation PMF (vacuum, umbrella + MBAR)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "tLEaP built ACE ALA NME de novo with leaprc.protein.ff14SB (logs/s027_build_37118.out EXIT_TLEAP=0); system.prmtop generated, 22 atoms, net charge 0.0, 0 errors per PROCESS_REPORT. phi atom serials verified from system.pdb (C(ACE)=5, N=7, Ca=9, C=15). Vacuum min (job 37119) -> min.rst7. Topology sane, vacuum (no box) appropriate for prompt."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md has a full 4-tier justification table: ff14SB chosen over ff19SB with RAG/manual citation (ff19SB CMAPs are solution-fit, inappropriate for gas-phase torsion scan); vacuum settings igb=0/ntb=0/cut=999 justified vs RAG pages; Langevin ntt=3 gamma=5 justified for canonical sampling without solvent; spring k=100 at 15deg spacing justified for overlap. No hardcoded defaults; banned-phrase clean. All Amber steps via SLURM. PLAN present before sbatch."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "All 24 windows COMPLETED (job 37144, exit 0); each phi.dat = 2500 samples (win_00/12/23 verified). win_12 prod.out AVERAGES over 250000 steps: TEMP=299.08 K stable, no NaN. Initial SHAKE/vlimit blowup in far windows (job 37120) diagnosed and fixed by inserting restrained minimization step before heating, then all 24 re-run uniformly. Per-window sigma(phi)~3-3.7deg, |<phi>-phi0|<=5deg (centered)."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "Correct method for the prompt: MBAR via pymbar 4.0.3 (mbar_pmf.py), reduced potential u=beta*k*dphi^2 with Amber NMR convention, 20% per-window equilibration discard (2000/2500 frames), 72x5deg bins over full 360deg. Observable = PMF(phi) (pmf_phi.dat), correct CV. Analytical uncertainty <=0.30 kcal/mol; windows give continuous ~5sigma overlap."},
+    "C5": {"credit": 0.9, "applicable": true, "note": "Paper-confirmed comparison. Source is Chipot & Pohorille (2007) book (not on PubMed); verified expected gas-phase aladip physics via WebSearch fallback. Agent: C7eq global min at phi=-77.5deg (=0) matches key C7eq ~-80deg; C5/PPII local min at -147.5deg (+1.17) matches key C5/PPII ~-150deg; C7ax/alphaL at +62.5deg (+2.31 kcal/mol) matches key 'alphaL +60deg higher by ~2-3 kcal/mol' and literature (C7ax-C7eq ~1.6-1.8 kcal/mol, agent slightly high). Barrier C7eq->C7ax ~9.4 kcal/mol matches metadynamics ~8.6-8.8 kcal/mol (36-37 kJ/mol) from literature. Minor: distinct alphaR (~-60deg) minimum from the key not resolved (sits on rising slope, -62.5deg=0.74), but alphaR is not typically a separate gas-phase basin. Strong overall agreement."}
+  },
+  "blocked": false,
+  "difficulty": "medium",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

@@ -1,0 +1,36 @@
+{
+    "study_id": "028",
+    "orig_id": "027",
+    "title": "QM/MM (PM6) of HIV-1 protease catalytic Asp25/25' dyad (1HHP)",
+    "checkpoints": {
+        "C1": {
+            "credit": 1.0,
+            "applicable": true,
+            "note": "1HHP fetched; correctly recognized apo asymmetric unit = single monomer and generated the biological homodimer from REMARK 350 BIOMT op-2 (system/make_dimer.py; Asp25A-CG/Asp25B-CG = 5.36 A crystal) so the dyad exists. propka3 (system/dimer.pka) -> monoprotonated dyad (Asp25A ASP pKa5.32, Asp25'B ASH pKa7.19), His69 HIE. ff14SB/TIP3P, solvateOct 10 A, 5 Cl- neutralize net +5 (system/charge_check.log), 29,084 atoms. tLEaP built system.prmtop/inpcrd (system/tleap.log, leap.log), no residues dropped."
+        },
+        "C2": {
+            "credit": 1.0,
+            "applicable": true,
+            "note": "PLAN.md gives full tier protocol with PMIDs + manual pages: ff14SB (PMID 33810118; Amber24 sec3.1 p.34/36), TIP3P (PMID 41305458; p.34), Cl- JC neutralize-only (p.249), all with rag manual-validation of leaprc names. QM/MM settings each justified: PM6 with AM1 fallback (prompt), qmcharge=-1 from monoprotonated dyad (PMID 39506927), qmcut=8.0 (p.405), qmshake=0/ntc=1 (p.397), 1 fs dt. Protonation rationale, lit-review table, RAG-first. No hardcoded defaults. ntpr/ntwr overrides disclosed+justified for 1 ps diagnostic. PLAN self-approved (autonomous benchmark mode)."
+        },
+        "C3": {
+            "credit": 1.0,
+            "applicable": true,
+            "note": "Full chain ran: MM min1 (2000cyc) -> MM min2 (2500cyc) -> QM/MM PM6 min (500cyc) -> QM/MM PM6 NVT MD. qmmd.mdout AVERAGES over 1000 steps completed (1.0 ps); 0 SCF convergence failures (grep), final-step TEMP 298.26 K, last 200 steps ~296-298 K, PM6ESCF -447.4 kcal/mol bounded no drift, backbone RMSD <0.5 A (bb_rmsd.dat). Initial dip to 158 K recovered under Langevin (expected). No NaN/blow-up."
+        },
+        "C4": {
+            "credit": 1.0,
+            "applicable": true,
+            "note": "cpptraj analysis (analysis/) targets the right observables for a QM/MM stability + catalytic-geometry check: SCF-failure count, temperature/PM6-ESCF trace (temp_escf.dat), dyad CG-CG and inner OD-OD distances (dyad_geom.dat, real 100-frame data), catalytic water-to-each-Asp distances (water_geom.dat), backbone RMSD, stability.png. Correct method and correct observables for the prompt's 'check stability' question."
+        },
+        "C5": {
+            "credit": 0.65,
+            "applicable": true,
+            "note": "Expected (BENCHMARK_ANSWERS 027): QM region stable; Asp-Asp dyad ~2.6-2.8 A O-O; catalytic water between carboxylates. Verified vs literature (cited Miller JACS 1998 ja980820x paywall-403; expected value confirmed via Piana&Carloni 2000 apo-dyad ab initio PMID 10737924, pH-REMD monoprotonated state, neutron/X-ray O-O short H-bond 2.2-2.8 A + water between carboxylates). Agent: QM region fully stable (met); catalytic water bridges carboxylates, H-bonded to Asp25'(ASH) 2.50+-0.07 A and 3.46 A to Asp25 (met). Dyad inner O-O = 3.2-3.9 A (dyad_geom OD1-OD2 min 3.19 A), looser than expected 2.6-2.8 A H-bonded dyad -- defensible because prompt-specified apo 1HHP has open flaps/splayed dyad (crystal CG-CG 5.36 A), but it is a real deviation from the expected tight short-H-bond value. 2/3 features matched, third in right ballpark but ~0.5-1 A too long."
+        }
+    },
+    "blocked": false,
+    "difficulty": "hard",
+    "paper_checked": true,
+    "answer_key_ok": true
+}

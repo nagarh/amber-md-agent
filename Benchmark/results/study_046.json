@@ -1,0 +1,16 @@
+{
+  "study_id": "046",
+  "orig_id": "067",
+  "title": "Heparin pentasaccharide (Arixtra) with antithrombin (1AZX)",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "1AZX fetched (raw_pdbs/1AZX.pdb), chain I + pentasaccharide chain A; gap I:26-38 AlphaFold-modeled (pLDDT 44, excluded from fit), ACE/NME caps, 3 disulfides as CYX. Synthetic methylated/sulfated analog parametrized GAFF2/ABCG2, net charge -11 (sqm maxcyc=0 single-point, converged). tLEaP: Errors=0, Warnings=1; 54,571 atoms, trunc-oct, total charge ~0 (-0.002). Topology sane."},
+    "C2": {"credit": 0.95, "applicable": true, "note": "PLAN.md gives full tier-justified FF table: ff14SB (Tier 2 manual p883), TIP3P, GAFF2/ABCG2 (manual p311 'gaff2/abcg2 recommended; gaff2/bcc not'), Joung-Cheatham ions, 10 A trunc-oct padding, 0.15 M NaCl (electrostatic screening required), 50 ns each with manual validation. propka3 @ pH 7.4 (plasma protein, Tier 1). No hardcoded defaults; PLAN approval gate present."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "min1/min2 -> heat (NVT 100 ps) -> Berendsen density burst -> equil2 (MC NPT 1 ns) -> production NPT full 50 ns (NSTEP=25,000,000 reached, TIME 51150 ps). AVERAGES: density 1.0352 g/cc, T 299.99 K, stable Etot, no blow-up/NaN. 4.45 h wall."},
+    "C4": {"credit": 0.95, "applicable": true, "note": "analysis.in: RMSD protein core (excl loop), RCL (377-400), pentasaccharide; RMSF byres; hbond contacts both directions w/ per-residue occupancy (avgout); radgyr. Correctly addresses both prompt parts (heparin-protein interactions + RCL conformational change). Minor: hbond avgout includes CH pseudo-contacts (CA/CB donors) inflating raw counts, but real electrostatic contacts cleanly resolved."},
+    "C5": {"credit": 0.9, "applicable": true, "note": "Paper (Jin 1997 PMID 9405673) names binding residues Arg-129, Lys-125, Arg-46, Arg-47, Lys-114, Lys-11, Arg-13. Agent's contact map (hbond_prot_to_pen.dat) reproduces exactly these: Arg47 99%, Arg129 44%, Arg46 30%, Lys114 26%, Lys125 21%, Arg13 35%, Lys11 17%. Pentasaccharide stays bound (RMSD 2.29 A). RCL identified as most mobile ordered region (RMSD 3.5 A, RMSF up to 4.5 A at P1 Arg393) consistent with paper's RCL extrusion; full six->five-stranded expulsion is us-scale, not captured in 50 ns and honestly flagged as caveat. Matches answer key contacts + RCL-mobility expectation."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

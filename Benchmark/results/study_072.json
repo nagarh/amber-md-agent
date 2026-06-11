@@ -1,0 +1,16 @@
+{
+  "study_id": "072",
+  "orig_id": "096",
+  "title": "Phosphodiesterase mechanism (RNase A) — QM/MM transphosphorylation",
+  "checkpoints": {
+    "C1": {"credit": 1.0, "applicable": true, "note": "tLEaP build succeeded (system/tleap.out, leap.log): 24,022 atoms, ff19SB+OPC, CPA ligand (GAFF2/AM1-BCC, charges sum exactly -1.0, parmchk2 no missing params), 4 disulfides->CYX, net charge exactly 0.0 after fixing an ion-sign bug (Na+ failed on +4 solute -> 4 Cl- added; PROCESS_REPORT §5). validate_tleap PASS; alt-locs/MPD/waters cleanly handled, no residues silently dropped. prmtop/rst7 present in system/."},
+    "C2": {"credit": 1.0, "applicable": true, "note": "PLAN.md justifies every parameter via tier protocol with PMID + Amber24 page citations: ff19SB (p.34-35, PMID:20455590), OPC (p.53-54), Li/Merz 12-6 OPC ions, 10 Å oct box, DFTB3/3ob-3-1 for P (p.147-152), QM/MM ntc=1/ntf=1/dt=0.001 (RAG-cited). Mechanistic His12=HID/His119=HIP override of apo propka documented. RAG-first, literature review (Formoso 2010, Harris 2015), no hardcoded defaults. Two bugs (ion sign, DFTB3 PR.DAT) caught via smoke test and corrected."},
+    "C3": {"credit": 1.0, "applicable": true, "note": "Full 6-step pipeline all EXIT=0 (logs/s072_qmmm_38046.out): MM min1/min2, QM/MM min, heat (20ps), equil (20ps), prod (25000 steps = 25ps). 06_prod_qmmm.out AVERAGES: TEMP 300.07 K, Etot -81150, DFTBESCF -10751 stable; mdinfo final NSTEP=25000 TIME=65ps, no NaN/bomb across 65 ps; sander.MPI built-in QM/MM (correct engine). Run done 23:24:11."},
+    "C4": {"credit": 1.0, "applicable": true, "note": "cpptraj analysis (active_site.cpptraj) computes exactly the right observables for the mechanism question: His119 Nε2/Nδ1-H···O5'(leaving) distance + H-bond (2.96 Å, 98.8% frames, hbond_avg.dat), His12 Nε2···O1P/O2P nonbridge contacts, scissile P-O5'/P-O3' bond lengths (1.63/1.64 Å), in-line O3'-P-O5' angle (102±3.7°, catalytic_angle.dat), backbone RMSD 0.39 Å, Cα-RMSF, convergence check. All values verified present in analysis/*.dat. Correct method (QM/MM with phosphodiester+His12+His119 in QM, 96 QM atoms verified in qmmm_region.pdb) and correct active-site observables."},
+    "C5": {"credit": 0.85, "applicable": true, "note": "Paper confirmed (Raines, Chem Rev 1998, PMID:11848924, DOI:10.1021/cr960427h; mechanism verified via raineslab PDF + Europe PMC): His12 = general base activating the 2'-O nucleophile, His119 = general acid protonating the 5'-O leaving group, in-line attack via pentacovalent phosphorane TS — answer_key_ok. Agent reproduced QM region = scissile phosphodiester + His12 + His119, a stable Michaelis complex (RMSD 0.39 Å, intact P-O), His119(HIP) poised as general acid H-bonding O5' (98.8%), His12 at nonbridge O, and in-line angle 102°. Partial deduction: the answer key Expected explicitly lists the 2'-OH nucleophile in the QM region; the agent used 1RPG d(CpA) which lacks the 2'-OH and transparently flagged this (monitoring His12 to nonbridge O as proxy rather than to the nucleophile). Scientifically defensible (non-hydrolyzable analog) but the expected reactive 2'-O···P in-line geometry is not directly captured."}
+  },
+  "blocked": false,
+  "difficulty": "very-hard",
+  "paper_checked": true,
+  "answer_key_ok": true
+}

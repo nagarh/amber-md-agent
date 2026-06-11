@@ -12,9 +12,9 @@
 [![SLURM](https://img.shields.io/badge/HPC-SLURM_Ready-F97316?style=flat-square)](#quick-start)
 
 *Give it a scientific question — the agent does the research for you. It retrieves
-published protocols from PubMed, resolves structures and binding data from 7 live
-databases, justifies every parameter with evidence — a literature citation or the
-Amber 24 manual (RAG) — builds a simulation plan for
+published protocols and performs a literature review from PubMed, resolves structures
+and binding data from 7 live databases, justifies parameter choices with evidence —
+a literature citation or the Amber 24 manual (RAG) — builds a simulation plan for
 your review, runs MD on your HPC cluster via SLURM, self-corrects on failure, and
 writes a scientific report.*
 

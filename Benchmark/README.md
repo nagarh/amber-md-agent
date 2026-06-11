@@ -31,6 +31,18 @@ These 68 are the **current validated set** — studies whose prompt *and* answer
 
 ---
 
+## How the benchmark works
+
+Three phases, kept **strictly separated** so the agent can never see what it's graded against:
+
+1. **Curation (offline, human-verified).** Each study is distilled from a published paper into two separate files: a **prompt** (PDB ID + scientific question, phrased as a user would ask) and an **answer key** (the paper's expected outcome). Every **citation (PMID / DOI) and expected value is checked against the primary source** before a study is marked validated — the **68 here are the ones that passed** that check.
+2. **Blind autonomous run.** The agent is handed **only the prompt — never the answer key**. It runs the entire pipeline unattended: research → plan → build → run → analyze → write `STUDY_REPORT.md` (detailed in [What it tests](#what-it-tests)).
+3. **Independent judging.** A **separate judge agent** — not the one that ran the study — reads the **answer key *and* the source paper itself**, then scores the [5-checkpoint rubric](#scoring). The study agent and its judge never share context (see [Isolation](#isolation-anti-cheating)).
+
+So the score reflects a curated, citation-checked target; an agent that solved it blind; and an independent grader that verified the result against the literature.
+
+---
+
 ## What it tests
 
 Each study is a realistic user request derived from a published paper (PDB ID + scientific question). The agent must, **fully autonomously**:

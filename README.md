@@ -2,8 +2,6 @@
 
 <img src="AmberMDAgent_logo.png" alt="AmberMD Agent logo" width="320">
 
-# AmberMD Agent
-
 **Agentic MD simulation framework — RAG-grounded planning · 8 MCP tool servers · HITL approval gate · SLURM**
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)

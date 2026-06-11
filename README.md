@@ -93,7 +93,6 @@ The one soft spot — **literature-match 89.6** — concentrates in force-field-
 - **Single run per study.** Each score is from **one agent run** (one trajectory per system unless the protocol itself needs replicas/λ-windows). Run-to-run variance is **not yet quantified** — bounding it is part of the in-progress human-expert evaluation.
 - **Sampling.** Most studies are **single short-to-moderate trajectories (50–200 ns)**. Absolute free energies, IDP ensembles, and buried-residue pKa are force-field- and sampling-limited (see the [failure taxonomy](Benchmark/README.md#failure-taxonomy)); the agent **flags** these rather than overclaiming.
 - **Compute.** Runs require a **CUDA-GPU SLURM cluster**; per-study cost scales with system size and simulation length. Agent-reasoning tokens are modest next to the GPU time.
-- **Score semantics.** **100** = full credit on the 5-checkpoint rubric (build · methodology · completion · analysis · literature-match), **not** a claim of 100% physical accuracy.
 
 ---
 

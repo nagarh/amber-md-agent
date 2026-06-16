@@ -106,7 +106,7 @@ Real simulations run end-to-end by this agent, drawn from the [benchmark](Benchm
 
 > *"Run a 100 ns MD simulation of BPTI (5PTI) in explicit water at 300 K. Check structural stability via backbone RMSD and compare to the crystal structure."*
 
-The classic protein-MD benchmark, and the simplest study to read. Agent stripped the deuterium from the 1.0 Å joint X-ray/neutron 5PTI structure, rebuilt protons, ran 100 ns in OPC water, and measured backbone RMSD + per-residue RMSF. Backbone RMSD held at **1.06 Å** (0.97 Å over the last 50 ns), radius of gyration steady at 11.1 Å, and RMSF showed a **rigid core (~0.36 Å) with flexibility only at the C-terminus** (res58, 3.5 Å) — the native fold fully maintained, consistent with the Shaw 2010 long-timescale picture. Perfect score.
+The classic protein-MD benchmark, and the simplest study to read. Agent stripped the deuterium from the 1.0 Å joint X-ray/neutron 5PTI structure, rebuilt protons, ran 100 ns in OPC water, and measured backbone RMSD against the crystal structure. Backbone RMSD held at **1.06 Å** (0.97 Å over the last 50 ns), with radius of gyration steady at 11.1 Å — the native fold fully maintained, consistent with the Shaw 2010 long-timescale picture. Perfect score.
 
 - 📄 **[Read the final simulation report →](Benchmark/studies/study_071/STUDY_REPORT.md)**
 - 📋 **[Agent log file →](Benchmark/studies/study_071/PROCESS_REPORT.md)** — track the agent's step-by-step behavior
